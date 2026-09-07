@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vocseg"
+version = "1.0.0"
+description = "DeepLabV3+ ResNet50 Semantic Segmentation System on Pascal VOC 2012"
+authors = [{ name = "Hamin", email = "author@example.com" }]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "segmentation-models-pytorch>=0.3.0",
+    "matplotlib>=3.7.0",
+    "numpy>=1.24.0",
+    "pillow>=9.0.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.22.0",
+    "python-multipart>=0.0.6",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0",
+    "streamlit>=1.30.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"

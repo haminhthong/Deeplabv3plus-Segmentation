@@ -1,72 +1,53 @@
+"""Tương thích ngược (Backward Compatibility) cho inference.py."""
+
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
-import segmentation_models_pytorch as smp
 import torch
 import torch.nn.functional as F
 from PIL import Image
 from torchvision import transforms
-from torchvision.transforms import functional as TF
+import torchvision.transforms.functional as TF
 
-from config import IMAGE_MEAN, IMAGE_STD, NUM_CLASSES
-from dataset_voc import calculate_letterbox_geometry
+from experiments.architectures import build_experimental_model
+from vocseg.constants import DEFAULT_IMAGE_SIZE, IMAGE_MEAN, IMAGE_STD, NUM_CLASSES
+from vocseg.data.transforms import calculate_letterbox_geometry
+from vocseg.inference.predictor import Predictor
+from vocseg.inference.visualization import overlay_mask
+from vocseg.models.deeplabv3plus import build_deeplabv3plus
+from vocseg.training.checkpoint import load_checkpoint
 
 
 def build_model(
     encoder: str = "resnet50",
-    encoder_weights: str | None = "imagenet",
+    encoder_weights: Optional[str] = "imagenet",
     num_classes: int = NUM_CLASSES,
     architecture: str = "deeplabv3plus",
 ):
-    """Khởi tạo mô hình phân đoạn ảnh theo cấu hình thống nhất.
-
-    Các kiến trúc ứng viên được hỗ trợ:
-    - deeplabv3plus: DeepLabV3+ với Atrous Spatial Pyramid Pooling (ASPP).
-    - unet: U-Net với các kết nối tắt (skip connections).
-    - fpn: Feature Pyramid Network cho multi-scale representation.
-    """
     arch = architecture.lower()
     if arch in ("deeplabv3plus", "deeplabv3+"):
-        return smp.DeepLabV3Plus(
-            encoder_name=encoder,
-            encoder_weights=encoder_weights,
-            classes=num_classes,
-            activation=None,
-        )
-    elif arch == "unet":
-        return smp.Unet(
-            encoder_name=encoder,
-            encoder_weights=encoder_weights,
-            classes=num_classes,
-            activation=None,
-        )
-    elif arch == "fpn":
-        return smp.FPN(
-            encoder_name=encoder,
-            encoder_weights=encoder_weights,
-            classes=num_classes,
-            activation=None,
-        )
+        return build_deeplabv3plus(encoder=encoder, encoder_weights=encoder_weights, num_classes=num_classes)
+    elif arch in ("unet", "fpn"):
+        return build_experimental_model(architecture=arch, encoder=encoder, encoder_weights=encoder_weights, num_classes=num_classes)
     else:
-        raise ValueError(
-            f"Kiến trúc không được hỗ trợ: {architecture}. "
-            "Lựa chọn hợp lệ: deeplabv3plus, unet, fpn"
-        )
+        raise ValueError(f"Kiến trúc không được hỗ trợ: {architecture}. Lựa chọn hợp lệ: deeplabv3plus, unet, fpn")
 
 
 def load_checkpoint_model(path: str | Path, device: torch.device):
     path = Path(path)
     if not path.is_file():
         raise FileNotFoundError(f"Không tìm thấy checkpoint: {path}")
-    checkpoint = torch.load(path, map_location=device, weights_only=True)
+    checkpoint = load_checkpoint(path, device)
     metadata = checkpoint if isinstance(checkpoint, dict) else {}
     state_dict = metadata.get("model_state_dict", checkpoint)
     encoder = metadata.get("encoder", "resnet50")
     architecture = metadata.get("architecture", "deeplabv3plus")
     num_classes = int(metadata.get("num_classes", NUM_CLASSES))
-    model = build_model(encoder, None, num_classes, architecture)
+
+    model = build_model(encoder=encoder, encoder_weights=None, num_classes=num_classes, architecture=architecture)
     model.load_state_dict(state_dict)
     model.to(device).eval()
     return model, metadata
@@ -84,52 +65,28 @@ def prepare_image(image: Image.Image, image_size: int):
     return tensor, (pad_left, pad_top, resized_w, resized_h), image.size
 
 
-def overlay_mask(image: np.ndarray, mask: np.ndarray, alpha: float = 0.5) -> np.ndarray:
-    """Phủ mặt nạ màu lên ảnh RGB."""
-    alpha = float(np.clip(alpha, 0.0, 1.0))
-    output = image.astype(np.float32) * (1 - alpha) + mask.astype(np.float32) * alpha
-    return np.clip(output, 0, 255).astype(np.uint8)
-
-
 @torch.inference_mode()
 def predict_with_uncertainty(
     model: torch.nn.Module,
     image: Image.Image,
     image_size: int,
     device: torch.device,
-) -> dict[str, np.ndarray]:
-    """Thực hiện suy luận tại độ phân giải gốc và kết xuất bản đồ độ bất định/độ tin cậy.
-
-    Quy trình:
-    1. Letterbox ảnh gốc về target image_size
-    2. Model forward pass thu được logits
-    3. Cắt bỏ vùng padding do letterbox tạo ra
-    4. Nội suy logits song tuyến (bilinear) về kích thước ảnh gốc (original_h, original_w)
-    5. Softmax trên logits để thu được phân bố xác suất per-pixel
-    6. Tính Hard mask (argmax), Max-probability map và Normalized Entropy map
-
-    LƯU Ý KỸ THUẬT:
-    Bản đồ này phản ánh độ phân vân/bất định (uncertainty / reliability map) của phân bố Softmax,
-    không xem là xác suất Bayes đã hiệu chuẩn (calibrated confidence) trừ khi đã qua calibration.
-    """
+) -> Dict[str, np.ndarray]:
     was_training = model.training
-    if was_training:
-        model.eval()
+    model.eval()
     try:
         tensor, (left, top, resized_w, resized_h), (original_w, original_h) = prepare_image(image, image_size)
         logits = model(tensor.unsqueeze(0).to(device))
         logits = logits[:, :, top : top + resized_h, left : left + resized_w]
         logits = F.interpolate(logits, size=(original_h, original_w), mode="bilinear", align_corners=False)
 
-        probs = F.softmax(logits, dim=1).squeeze(0)  # [C, H, W]
+        probs = F.softmax(logits, dim=1).squeeze(0)
         hard_mask = probs.argmax(dim=0).cpu().numpy().astype(np.int64)
         max_prob = probs.max(dim=0).values.cpu().numpy().astype(np.float32)
 
-        # Normalized Entropy: H = - sum(p * log(p + eps)) / log(num_classes)
-        num_classes = probs.shape[0]
         eps = 1e-7
         entropy = -(probs * torch.log(probs + eps)).sum(dim=0)
-        norm_factor = float(np.log(max(num_classes, 2)))
+        norm_factor = float(np.log(max(probs.shape[0], 2)))
         normalized_entropy = (entropy / norm_factor).clamp(0.0, 1.0).cpu().numpy().astype(np.float32)
 
         return {
@@ -145,10 +102,8 @@ def predict_with_uncertainty(
 
 @torch.inference_mode()
 def predict_original_size(model, image: Image.Image, image_size: int, device: torch.device) -> np.ndarray:
-    """Suy luận trả về hard mask tại kích thước gốc của ảnh (tối ưu tốc độ khi chỉ cần nhãn)."""
     was_training = model.training
-    if was_training:
-        model.eval()
+    model.eval()
     try:
         tensor, (left, top, resized_w, resized_h), (original_w, original_h) = prepare_image(image, image_size)
         logits = model(tensor.unsqueeze(0).to(device))
@@ -158,3 +113,13 @@ def predict_original_size(model, image: Image.Image, image_size: int, device: to
     finally:
         if was_training:
             model.train()
+
+
+__all__ = [
+    "build_model",
+    "load_checkpoint_model",
+    "prepare_image",
+    "overlay_mask",
+    "predict_with_uncertainty",
+    "predict_original_size",
+]

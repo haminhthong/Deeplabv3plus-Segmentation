@@ -1,0 +1,39 @@
+# Canonical Baseline Configuration for DeepLabV3+ ResNet50 on Pascal VOC 2012
+
+model:
+  architecture: "deeplabv3plus"
+  encoder: "resnet50"
+  encoder_weights: "imagenet"
+  num_classes: 21
+
+data:
+  dataset_name: "Pascal VOC 2012"
+  image_size: 320
+  ignore_index: 255
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+training:
+  batch_size: 8
+  epochs: 50
+  optimizer: "adamw"
+  lr: 0.0001
+  weight_decay: 0.0001
+  scheduler: "cosine"
+  eta_min: 0.000001
+  amp: true
+  seed: 42
+  num_workers: 2
+  patience: 0
+
+loss:
+  cross_entropy: 1.0
+  dice: 0.5
+
+selection:
+  metric: "val_miou_all"
+
+paths:
+  data_root: "data/VOC2012_train_val/VOC2012_train_val"
+  output_dir: "outputs"
+  checkpoint_dir: "checkpoints"
