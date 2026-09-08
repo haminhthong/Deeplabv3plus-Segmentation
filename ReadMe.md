@@ -1,243 +1,246 @@
-# DeepLabV3+ ResNet50 Semantic Segmentation System
+# DeepLabV3+ ResNet50 Semantic Segmentation
 
-> **Hệ thống phân đoạn ảnh chuẩn hóa từ Dataset Contract, Training Lifecycle, Parity Serving đến Locked Holdout Benchmark trên Pascal VOC 2012.**
-
-[![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![CI](https://github.com/haminhthong/deeplabv3plus-segmentation/actions/workflows/ci.yml/badge.svg)](https://github.com/haminhthong/deeplabv3plus-segmentation/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![SMP](https://img.shields.io/badge/Segmentation%20Models%20PyTorch-0.3%2B-0B7285)](https://github.com/qubvel-org/segmentation_models.pytorch)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.30%2B-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![Ruff](https://img.shields.io/badge/lint-Ruff-D7FF64?logo=ruff&logoColor=111111)](https://docs.astral.sh/ruff/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
----
+Hệ thống phân đoạn ngữ nghĩa ảnh bằng DeepLabV3+ với encoder ResNet50, huấn luyện trên Pascal VOC 2012. Một pipeline canonical duy nhất chi phối dữ liệu, cấu hình, huấn luyện, đánh giá, báo cáo và suy luận phục vụ.
 
-## 1. Tầm nhìn & Nguyên lý Kỹ thuật (Engineering Vision)
+## Bài toán & Phạm vi ứng dụng (Problem & Scope)
 
-Dự án này **không nhằm mục đích** chạy đua thêm nhiều kiến trúc (U-Net, FPN, SegFormer, v.v.) hay dựng hạ tầng phân tán quá sớm (Redis, Triton cluster). Thay vào đó, mục tiêu duy nhất là:
+Bài toán là gán một class ngữ nghĩa cho từng pixel của ảnh RGB. Mô hình có 21 lớp Pascal VOC: background và 20 lớp đối tượng. Kết quả là một mặt nạ class ID, mặt nạ màu Pascal VOC, ảnh overlay và các chỉ số tin cậy theo pixel.
 
-> **Xây dựng một hệ thống Semantic Segmentation đúng chuẩn mực ML Engineering, có khả năng kiểm soát dữ liệu chặt chẽ, tái lập 100%, phục vụ suy luận chuẩn xác tại độ phân giải gốc của ảnh và sẵn sàng triển khai thực tế.**
+Phạm vi của repo gồm kiểm tra dữ liệu VOC, chia tập có seed, huấn luyện DeepLabV3+ ResNet50, đánh giá mIoU/Dice/Pixel Accuracy/Boundary F1, xuất báo cáo JSON/CSV, CLI inference, FastAPI và Streamlit. Hệ thống không làm instance segmentation, object detection, open-vocabulary segmentation hoặc phân biệt các cá thể cùng lớp.
 
-### 5 Nguyên Tắc Cốt Lõi Được Chuẩn Hóa
-1. **Một Dữ Liệu - Một Split Contract Duy Nhất (Zero Fallback)**: Xóa bỏ hoàn toàn cơ chế fallback 100 ID mẫu. Toàn bộ ảnh/mặt nạ được xác thực SHA-256 thực tế; phân chia official train thành `dev_train` (85%) và `dev_val` (15%) bằng **multilabel stratification**.
-2. **Khóa Chặt Tập Kiểm Thử (Locked Holdout Parity)**: Toàn bộ official VOC `val` (1,449 ảnh) được bảo vệ làm **Locked Holdout** và chỉ được đánh giá **đúng một lần duy nhất** sau khi chốt mô hình cuối. Tuyệt đối không duyệt hay demo tập holdout trên UI.
-3. **Artifact Contract 3 Tầng**: Phân định rõ ràng giữa `checkpoints/last.ckpt` (lưu toàn bộ trạng thái RNG, Optimizer, Scheduler, AMP Scaler để resume chính xác), `checkpoints/best.ckpt` (mô hình phát triển tốt nhất trên `dev_val`), và `checkpoints/final_model.pth` (mô hình triển khai tinh gọn, không mang gánh nặng optimizer).
-4. **Tính Nhất Quán Giữa Huấn Luyện & Phục Vụ (Training / Serving Parity)**: Đóng gói duy nhất một `Predictor` canonical:
-   $$\text{Original Image} \rightarrow \text{Letterbox } 320 \times 320 \rightarrow \text{Model} \rightarrow \text{Crop Padding} \rightarrow \text{Resize Logits to } (H_{\text{orig}}, W_{\text{orig}}) \rightarrow \text{Softmax / Argmax}$$
-   Cả Holdout Evaluator, FastAPI và Streamlit đều sử dụng chung một implementation này.
-5. **Hệ Thống Thang Đo Chuẩn Xác (Metrics Hierarchy)**: Loại bỏ các phép đo vùng dựa trên tổng pixel class; thay thế Boundary F1 cố định bằng **dung sai thích ứng theo kích thước ảnh gốc** ($r \propto \text{diagonal}$).
+## Quy trình kỹ thuật duy nhất
 
----
+Sơ đồ dưới đây là hợp đồng kỹ thuật chung. Mọi script, module, cấu hình và báo cáo phải đi qua cùng các nút dữ liệu và artifact này.
 
-## 2. Kiến Trúc Toàn Bộ Vòng Đời Hệ Thống (End-to-End ML Lifecycle)
+```mermaid
+flowchart TD
+    A[Pascal VOC 2012\nJPEGImages + SegmentationClass + official train/val IDs] --> B[scripts/prepare_data.py]
+    B --> C[Audit toàn vẹn\nmissing files, kích thước, class ID, duplicate ID, SHA-256]
+    C -->|PASSED| D[artifacts/data/audit.json\nartifacts/data/dataset_manifest.json]
+    C -->|FAILED| X[Dừng pipeline và sửa dữ liệu]
+    D --> E[Multilabel stratification trên official train\nseed=42, val_ratio=0.15]
+    E --> F[artifacts/data/splits/dev_train.txt]
+    E --> G[artifacts/data/splits/dev_val.txt]
+    A --> H[official val được khóa thành\nartifacts/data/splits/holdout.txt]
 
-```text
-                      PASCAL VOC 2012
-                             │
-                             ▼
-                    ┌─────────────────┐
-                    │  DATA INGESTION │
-                    └────────┬────────┘
-                             │
-                             ▼
-                    Dataset Integrity Audit
-                    ├─ image exists & mask exists
-                    ├─ matching dimensions
-                    ├─ valid class IDs 0..20 / 255
-                    ├─ duplicate ID detection
-                    └─ exact duplicate SHA-256 check
-                             │
-                             ▼
-                       DATA MANIFEST
-                             │
-                             ▼
-              ┌─────────────────────────────┐
-              │ OFFICIAL VOC TRAIN DATA     │
-              └─────────────┬───────────────┘
-                            │
-                  multilabel stratification
-                            │
-                   ┌────────┴────────┐
-                   ▼                 ▼
-             DEV TRAIN          DEV VALIDATION
-                   │                 │
-                   │                 └─────► model selection
-                   │                         hyperparameters
-                   │                         best epoch
-                   ▼
-                TRAIN
-                   │
-                   ▼
-          DeepLabV3+ ResNet50
-                   │
-                   ▼
-             best development config
-                   │
-                   ▼
-              FREEZE CONFIG
-                   │
-                   ▼
-        FINAL FIT ON FULL OFFICIAL TRAIN
-                   │
-                   ▼
-              FINAL MODEL (final_model.pth)
-                   │
-                   ▼
-          OFFICIAL VOC VAL HOLDOUT
-           evaluated exactly once
-                   │
-                   ▼
-              FINAL REPORT
-                   │
-                   ▼
-              MODEL RELEASE
-                   │
-         ┌─────────┴─────────┐
-         ▼                   ▼
-      FastAPI             Streamlit
-         │                   │
-         └────── Predictor ───┘
-                   │
-                   ▼
-       Original-Resolution Mask
+    F --> I[scripts/train.py + configs/deeplabv3plus_resnet50_320.yaml]
+    G --> I
+    I --> J[TrainJointTransform\nrandom scale, crop, flip, color jitter\nimage bilinear / mask nearest / ignore=255]
+    J --> K[DeepLabV3+ ResNet50\nlogits B x 21 x 320 x 320]
+    K --> L[CombinedLoss\nCross Entropy + 0.5 x Dice]
+    L --> M[AdamW + CosineAnnealingLR + AMP CUDA]
+    K --> N[Development evaluation trên dev_val\nletterbox deterministic + mIoU chọn best]
+    N --> O[checkpoints/best.ckpt\ncheckpoints/last.ckpt\noutputs/train_log.csv]
+
+    O --> P[scripts/final_fit.py\nđọc best_epoch, fit lại full official train]
+    F --> P
+    G --> P
+    P --> Q[checkpoints/final_model.pth\nartifact triển khai tinh gọn]
+
+    Q --> R[scripts/evaluate_holdout.py]
+    H --> R
+    R --> S[Predictor canonical\nletterbox 320 -> model -> crop padding\nresize logits về H gốc x W gốc -> softmax/argmax]
+    S --> T[outputs/final_holdout_report.json\noutputs/final_holdout_per_class.csv]
+
+    Q --> U[CLI / FastAPI / Streamlit]
+    U --> S
+    S --> V[mask gốc, overlay, entropy map\nclass coverage, latency]
 ```
 
----
+Các quy tắc không được thay đổi giữa các đường chạy:
 
-## 3. Cấu Trúc Mã Nguồn Chuẩn Hóa
+- Ảnh và mask luôn dùng cùng ID. Mask giữ class `0..20`, biên/unknown dùng `255` và được bỏ qua trong loss/metric.
+- Development train và development validation chỉ được lấy từ official train. Official val là locked holdout và chỉ dùng cho báo cáo cuối.
+- Huấn luyện dùng augmentation joint; validation, holdout và serving dùng letterbox xác định. Mask resize bằng nearest-neighbor; logits mới được resize về kích thước ảnh gốc trước softmax/argmax.
+- `best.ckpt` phục vụ chọn cấu hình; `last.ckpt` phục vụ resume; `final_model.pth` là artifact serving không chứa optimizer/scheduler.
+- Metric chọn model là `mean_iou_all` trên `dev_val`. Báo cáo holdout có thêm mIoU foreground, Dice, Pixel Accuracy, Boundary F1 thích ứng, confusion pairs và latency.
+
+## Luồng logic, luồng dữ liệu và báo cáo
+
+`VOCSegmentationDataset` đọc `JPEGImages/{id}.jpg` và `SegmentationClass/{id}.png` từ split file được chỉ định. Với training, `TrainJointTransform` random scale trong `[0.75, 1.5]`, padding ngẫu nhiên nếu cần, crop về kích thước cấu hình, flip ngang và color jitter chỉ trên ảnh. Ảnh được normalize theo ImageNet; mask trở thành tensor `int64`.
+
+Trong development evaluation, `LetterboxTransform` giữ tỷ lệ ảnh, đệm bằng `255` trên mask và đánh giá logits ở không gian `320 x 320`. Trong holdout và serving, `Predictor` dùng đúng hình học letterbox đó, cắt padding khỏi logits, nội suy logits về `(height_gốc, width_gốc)`, rồi mới tính xác suất và nhãn. Vì vậy API, UI, CLI và holdout dùng cùng một implementation.
+
+`SegmentationMetrics` tích lũy confusion matrix theo pixel, bỏ qua target `255`, rồi tính IoU/Dice theo lớp. Boundary F1 lấy biên hình thái học và dung sai `max(1, round(diagonal * 0.005))`. `save_metrics` chuyển numpy array thành JSON hợp lệ và ghi bảng theo lớp sang CSV.
+
+## Cấu trúc thư mục dự án
 
 ```text
-Deeplabv3plus-Segmentation/
-│
+.
+├── .github/workflows/ci.yml
 ├── configs/
-│   └── deeplabv3plus_resnet50_320.yaml       # Canonical baseline configuration
-│
-├── src/
-│   └── vocseg/
-│       ├── __init__.py
-│       ├── config.py                         # Typed config & YAML loader
-│       ├── constants.py                      # 21 VOC classes, colormap, stats
-│       ├── schemas.py                        # Pydantic schemas (artifacts & API)
-│       │
-│       ├── data/
-│       │   ├── audit.py                      # Real SHA-256 audit & stats calculation
-│       │   ├── dataset.py                    # VOC segmentation dataset (manifest-based)
-│       │   ├── splits.py                     # Multilabel stratified splitting
-│       │   └── transforms.py                 # Joint training augmentation & letterbox
-│       │
-│       ├── models/
-│       │   └── deeplabv3plus.py              # Canonical DeepLabV3+ ResNet50 & validator
-│       │
-│       ├── training/
-│       │   ├── losses.py                     # CombinedLoss: CE (ignore 255) + 0.5 * Dice
-│       │   ├── reproducibility.py            # Complete RNG state capture/restore
-│       │   ├── checkpoint.py                 # last.ckpt, best.ckpt, final_model.pth
-│       │   └── trainer.py                    # Training engine (AMP, CosineAnnealing)
-│       │
-│       ├── evaluation/
-│       │   ├── metrics.py                    # mIoU, Dice, PixelAcc, adaptive Boundary F1
-│       │   ├── development.py                # Fast letterbox evaluation during epochs
-│       │   └── holdout.py                    # Locked original-resolution evaluator
-│       │
-│       ├── inference/
-│       │   ├── predictor.py                  # Canonical end-to-end original-resolution Predictor
-│       │   └── visualization.py              # Colormap overlay, entropy uncertainty map
-│       │
-│       └── api/
-│           └── app.py                        # Lightweight FastAPI service (/health, /segment)
-│
+│   └── deeplabv3plus_resnet50_320.yaml
+├── src/vocseg/
+│   ├── api/app.py                  # FastAPI /health và /segment
+│   ├── config.py                   # Dataclass config và YAML loader
+│   ├── constants.py                # VOC classes, màu, normalization
+│   ├── data/
+│   │   ├── audit.py                # Audit và manifest SHA-256
+│   │   ├── dataset.py              # VOCSegmentationDataset
+│   │   ├── splits.py               # Split contract và stratification
+│   │   └── transforms.py           # Joint augmentation và letterbox
+│   ├── evaluation/
+│   │   ├── development.py          # Đánh giá mỗi epoch
+│   │   ├── holdout.py              # Locked holdout original-resolution
+│   │   └── metrics.py              # IoU, Dice, BF1, confusion
+│   ├── inference/
+│   │   ├── predictor.py             # Predictor canonical
+│   │   └── visualization.py         # Mask PNG và overlay
+│   ├── models/deeplabv3plus.py      # Model builder và metadata validator
+│   ├── schemas.py                   # Pydantic artifact/API schemas
+│   └── training/
+│       ├── checkpoint.py             # last, best, final artifacts
+│       ├── losses.py                 # CE + Dice
+│       ├── reproducibility.py        # Seed và RNG state
+│       └── trainer.py                # Development training engine
 ├── scripts/
-│   ├── prepare_data.py                       # Audit & stratified dev/holdout split generation
-│   ├── train.py                              # Development training (DEV TRAIN -> DEV VAL)
-│   ├── final_fit.py                          # Final fit on full official train -> final_model.pth
-│   ├── evaluate_holdout.py                   # Locked holdout evaluation (single run)
-│   └── predict.py                            # CLI inference using canonical Predictor
-│
-├── demo/
-│   └── streamlit_app.py                      # Interactive demo UI (pure image upload & inspect)
-│
-├── experiments/
-│   └── architectures.py                      # Archived U-Net & FPN for ablation research
-│
-└── tests/
-    ├── unit/                                 # Unit tests for transforms, splits, metrics, checkpoint
-    ├── integration/                          # Synthetic mini VOC end-to-end lifecycle test
-    └── api/                                  # FastAPI endpoint contract tests
+│   ├── prepare_data.py               # Audit + tạo split/manifest
+│   ├── train.py                     # Development training
+│   ├── final_fit.py                 # Fit trên full official train
+│   ├── evaluate_holdout.py          # Báo cáo locked holdout
+│   └── predict.py                   # CLI inference
+├── demo/streamlit_app.py             # Demo ảnh upload
+├── tests/
+│   ├── unit/                         # Transform, split, metric, checkpoint, inference
+│   ├── api/                          # Contract của FastAPI
+│   └── integration/                  # Mini VOC lifecycle end-to-end
+├── pyproject.toml
+├── requirements.txt
+├── requirements-dev.txt
+└── ReadMe.md
 ```
 
----
+Dataset, checkpoint, output và cache không nằm trong repo. Cấu trúc dataset cần có:
 
-## 4. Hướng Dẫn Vận Hành Hệ Thống (Workflow & Commands)
+```text
+data/VOC2012_train_val/VOC2012_train_val/
+├── JPEGImages/{image_id}.jpg
+├── SegmentationClass/{image_id}.png
+└── ImageSets/Segmentation/
+    ├── train.txt
+    └── val.txt
+```
 
-### Bước 1: Chuẩn Bị Dữ Liệu & Audit Chống Rò Rỉ
+## Cài đặt
+
+Yêu cầu Python `3.10+`. Từ thư mục gốc dự án:
+
+```bash
+python -m venv .venv
+# Linux/macOS
+source .venv/bin/activate
+# Windows PowerShell: .venv\Scripts\Activate.ps1
+
+python -m pip install --upgrade pip
+python -m pip install -e .
+python -m pip install -r requirements-dev.txt
+```
+
+Đặt Pascal VOC vào đúng đường dẫn mặc định ở trên, hoặc truyền `--data-root` cho từng script. Không có dummy split và không tự tạo kết quả nếu dataset thiếu.
+
+## Chạy pipeline
+
+1. Audit dữ liệu và tạo split:
+
 ```bash
 python scripts/prepare_data.py --data-root data/VOC2012_train_val/VOC2012_train_val
 ```
-- Phân chia official train thành `dev_train` (85%) và `dev_val` (15%) có phân tầng đa nhãn.
-- Khóa official val thành `holdout.txt`.
-- Xuất `artifacts/data/dataset_manifest.json` và `artifacts/data/audit.json` chứa mã băm SHA-256 thực tế.
 
-### Bước 2: Huấn Luyện Giai Đoạn Phát Triển (Development Training)
+Kết quả gồm `artifacts/data/audit.json`, `artifacts/data/dataset_manifest.json`, `dev_train.txt`, `dev_val.txt` và `holdout.txt`.
+
+2. Huấn luyện development:
+
 ```bash
 python scripts/train.py --config configs/deeplabv3plus_resnet50_320.yaml
 ```
-- Huấn luyện trên `dev_train`, đánh giá sau mỗi epoch trên `dev_val`.
-- Tự động lưu `checkpoints/last.ckpt` (đầy đủ RNG states để resume) và `checkpoints/best.ckpt` (khi `val_miou_all` đạt đỉnh mới).
 
-### Bước 3: Huấn Luyện Mô Hình Cuối Cùng (Final Fit)
-```bash
-python scripts/final_fit.py --best-checkpoint checkpoints/best.ckpt
-```
-- Đọc `best_epoch` từ `best.ckpt`, đóng băng cấu hình.
-- Khởi tạo trọng số ImageNet mới, huấn luyện lại đúng `best_epoch` trên toàn bộ tập official train (`dev_train + dev_val`).
-- Xuất artifact triển khai tinh gọn: `checkpoints/final_model.pth`.
+Có thể ghi đè `--epochs`, `--batch-size`, `--lr`, `--data-root`, `--output-dir`, `--checkpoint-dir` hoặc tiếp tục từ `--resume checkpoints/last.ckpt`.
 
-### Bước 4: Đánh Giá Trên Tập Kiểm Thử Bị Khóa (Locked Holdout Evaluation)
-```bash
-python scripts/evaluate_holdout.py --checkpoint checkpoints/final_model.pth
-```
-- Đánh giá mô hình release trên tập official VOC `val` tại độ phân giải gốc của ảnh.
-- Chạy đúng **1 lần duy nhất** để kết xuất báo cáo chuẩn mực `outputs/final_holdout_report.json`.
+3. Fit model cuối trên toàn bộ official train:
 
-### Bước 5: Dự Đoán Bằng Giao Diện Dòng Lệnh (CLI Predict)
 ```bash
-python scripts/predict.py --image path/to/image.jpg --checkpoint checkpoints/final_model.pth
+python scripts/final_fit.py \
+  --best-checkpoint checkpoints/best.ckpt \
+  --config configs/deeplabv3plus_resnet50_320.yaml
 ```
 
-### Bước 6: Khởi Chạy API Phục Vụ Suy Luận (FastAPI Serving)
+Script đọc `best_epoch` từ `best.ckpt`, ghép `dev_train` và `dev_val`, khởi tạo lại model và ghi `checkpoints/final_model.pth`.
+
+4. Đánh giá locked holdout:
+
+```bash
+python scripts/evaluate_holdout.py \
+  --checkpoint checkpoints/final_model.pth \
+  --holdout-split artifacts/data/splits/holdout.txt
+```
+
+Kết quả được ghi vào `outputs/final_holdout_report.json` và `outputs/final_holdout_per_class.csv`. Chỉ chạy bước này sau khi cấu hình/model đã được khóa.
+
+5. Suy luận một ảnh:
+
+```bash
+python scripts/predict.py \
+  --image path/to/image.jpg \
+  --checkpoint checkpoints/final_model.pth \
+  --output-dir outputs/predictions
+```
+
+Script ghi mask màu, overlay, uncertainty map và metadata JSON.
+
+6. Chạy API:
+
 ```bash
 uvicorn vocseg.api.app:app --host 0.0.0.0 --port 8000
 ```
-- `GET /health`: Kiểm tra trạng thái máy chủ và thiết bị tính toán.
-- `POST /segment`: Nhận file ảnh và trả về metadata (kích thước, danh sách lớp, tỷ lệ phủ %, độ bất định entropy, latency) kèm mặt nạ PNG base64.
 
-### Bước 7: Trực Quan Hóa Tương Tác (Streamlit Interactive Demo)
+`GET /health` trả trạng thái model/device. `POST /segment` nhận multipart field `file` là JPG/PNG và trả kích thước ảnh, class xuất hiện, entropy trung bình, max probability trung bình, latency và `mask_png_base64`. Có thể đặt `CHECKPOINT_PATH` để chỉ rõ artifact.
+
+7. Chạy Streamlit:
+
 ```bash
 streamlit run demo/streamlit_app.py
 ```
-- Giao diện trực quan thuần túy cho phép người dùng kéo thả ảnh bất kỳ, quan sát Mặt nạ phân đoạn, Ảnh phủ màu (Overlay), Bản đồ bất định (Normalized Entropy Map) và Bảng tỷ lệ diện tích các lớp VOC.
 
----
+UI chỉ nhận ảnh upload để demo; nó không duyệt locked holdout.
 
-## 5. Phân Cấp Hệ Thống Đo Lường (Metric Hierarchy)
+## Kiểm thử và CI
 
-| Nhóm | Metric | Vai trò trong hệ thống |
-| :--- | :--- | :--- |
-| **Primary** | `mIoU (All 21 classes)` | Tiêu chí chính chọn model checkpoint theo chuẩn Pascal VOC |
-| **Diagnostic** | `mIoU (No Background)` | Đánh giá năng lực phát hiện 20 lớp đối tượng tiền cảnh |
-| **Diagnostic** | `Per-class IoU` | Định lượng điểm mạnh / điểm yếu của từng lớp cụ thể |
-| **Supporting** | `Mean Dice` | Đo lường độ trùng lặp tập hợp |
-| **Supporting** | `Pixel Accuracy` | Tỷ lệ pixel được phân lớp chính xác tổng thể |
-| **Boundary** | `Adaptive Boundary F1` | Đánh giá chất lượng đường biên với bán kính dung sai thích ứng theo kích thước ảnh ($0.5\% \times \text{diagonal}$) |
-| **Error Analysis** | `Confusion Pairs` | Phân tích các cặp lớp nhầm lẫn nhiều nhất off-diagonal |
-| **System** | `Latency (Mean / p50 / p95)` | Đo lường độ trễ suy luận tính bằng mili-giây |
-| **System** | `FPS` | Tốc độ thông lượng xử lý ảnh |
+Chạy các kiểm tra giống GitHub Actions:
 
----
+```bash
+python -m ruff check .
+python -m compileall -q src scripts tests demo
+python -m pytest -q
+```
 
-## 6. Điểm Nổi Bật Trong Hồ Sơ AI Engineer (CV Value)
+Workflow `.github/workflows/ci.yml` dùng Ubuntu, Python 3.11, cài package ở editable mode, chạy Ruff, compileall và toàn bộ pytest. Integration test dùng VOC tổng hợp và cấu hình không tải ImageNet weights; huấn luyện thật mới dùng `encoder_weights: imagenet` trong YAML.
 
-Dự án này chứng minh năng lực toàn diện của một **AI / Machine Learning Engineer**:
+## Artifact và báo cáo
 
-- **Data Engineering**: Data audit nghiêm ngặt, băm SHA-256 chống rò rỉ dữ liệu, phân tầng đa nhãn (multilabel stratification) cân bằng phân bố 20 lớp.
-- **Deep Learning**: Kiến trúc DeepLabV3+ ResNet50 với Atrous Spatial Pyramid Pooling (ASPP), transfer learning, joint augmentation, loss kết hợp CE + 0.5 Dice, Automatic Mixed Precision (AMP).
-- **ML Engineering**: Tách bạch 2 chặng (Development vs Final Fit), quản lý artifact 3 tầng, resume 100% tái lập (RNG capture), bảo vệ tuyệt đối Locked Holdout, Training-Serving Parity.
-- **Computer Vision**: Khôi phục mặt nạ tại độ phân giải gốc của ảnh, ước lượng độ bất định qua Normalized Entropy map, đánh giá đường biên thích ứng (Adaptive Boundary F1).
-- **Software Engineering**: Cấu trúc module chuẩn (`src/vocseg`), REST API với FastAPI, Interactive demo với Streamlit, bộ kiểm thử tự động (Unit, API, Integration E2E).
+| Artifact | Vai trò |
+| --- | --- |
+| `artifacts/data/audit.json` | Kết quả kiểm tra dữ liệu và chống rò rỉ |
+| `artifacts/data/dataset_manifest.json` | Checksum source/split và protocol |
+| `checkpoints/last.ckpt` | Resume: model, optimizer, scheduler, scaler và RNG |
+| `checkpoints/best.ckpt` | Model tốt nhất trên `dev_val` |
+| `checkpoints/final_model.pth` | Model serving tinh gọn |
+| `outputs/train_log.csv` | Loss và metric theo epoch |
+| `outputs/final_holdout_report.json` | Metric/profiling/error analysis holdout |
+| `outputs/final_holdout_per_class.csv` | Metric theo 21 lớp |
+
+## Giới hạn hiện tại
+
+Model chỉ nhận diện 21 lớp Pascal VOC và không có cơ chế nhận biết lớp ngoài tập. Inference được chuẩn hóa ở kích thước model `320 x 320`, sau đó khôi phục mặt nạ về kích thước gốc; ảnh rất lớn bị giới hạn ở 25 megapixel để tránh cạn bộ nhớ. `mean_max_prob` và normalized entropy là chỉ báo tin cậy từ Softmax, không phải calibration xác suất.
+
+## License
+
+MIT. Xem [LICENSE](LICENSE).

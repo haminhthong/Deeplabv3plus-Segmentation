@@ -183,3 +183,5 @@ cython_debug/
 # Project specific
 outputs/
 data/
+!src/vocseg/data/
+!src/vocseg/data/*.py

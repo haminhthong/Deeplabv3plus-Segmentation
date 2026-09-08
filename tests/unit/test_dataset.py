@@ -7,7 +7,6 @@ import pytest
 from PIL import Image
 
 from vocseg.data.dataset import VOCSegmentationDataset
-from vocseg.data.splits import read_split_file
 
 
 def test_voc_dataset_missing_folders(tmp_path: Path):

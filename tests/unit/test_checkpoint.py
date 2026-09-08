@@ -12,11 +12,10 @@ import torch.nn as nn
 from vocseg.models.deeplabv3plus import validate_checkpoint_metadata
 from vocseg.training.checkpoint import (
     load_checkpoint,
-    save_best_checkpoint,
     save_final_model,
     save_resume_checkpoint,
 )
-from vocseg.training.reproducibility import capture_rng_state, restore_rng_state
+from vocseg.training.reproducibility import restore_rng_state
 
 
 class DummyModel(nn.Module):

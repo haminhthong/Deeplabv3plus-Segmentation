@@ -16,7 +16,6 @@ import torchvision.transforms.functional as TF
 
 from vocseg.constants import (
     DEFAULT_IMAGE_SIZE,
-    IGNORE_INDEX,
     IMAGE_MEAN,
     IMAGE_STD,
     NUM_CLASSES,

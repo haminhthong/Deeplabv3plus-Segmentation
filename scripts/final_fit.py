@@ -54,27 +54,27 @@ def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # 1. Đọc cấu hình và best_epoch
-    if args.best_checkpoint.is_file():
-        ckpt = load_checkpoint(args.best_checkpoint, device=torch.device("cpu"))
-        fit_epochs = args.epochs or int(ckpt.get("best_epoch", app_cfg.training.epochs))
-        logger.info("Đã tìm thấy best.ckpt. Chốt số epoch huấn luyện: %d", fit_epochs)
-    else:
-        fit_epochs = args.epochs or app_cfg.training.epochs
-        logger.warning("Không tìm thấy best.ckpt. Sử dụng số epoch mặc định: %d", fit_epochs)
+    if not args.best_checkpoint.is_file():
+        logger.error("Không tìm thấy best checkpoint tại %s. Hãy chạy scripts/train.py trước.", args.best_checkpoint)
+        sys.exit(1)
+    ckpt = load_checkpoint(args.best_checkpoint, device=torch.device("cpu"))
+    fit_epochs = args.epochs or int(ckpt.get("best_epoch", 0))
+    if fit_epochs <= 0:
+        logger.error("best.ckpt không chứa best_epoch hợp lệ. Không thể thực hiện final fit.")
+        sys.exit(1)
+    logger.info("Đã tìm thấy best.ckpt. Chốt số epoch huấn luyện: %d", fit_epochs)
 
     # 2. Gom toàn bộ danh sách official train: dev_train + dev_val (hoặc official train.txt)
     dev_train_split = args.splits_dir / "dev_train.txt"
     dev_val_split = args.splits_dir / "dev_val.txt"
-    official_train = data_root / "ImageSets" / "Segmentation" / "train.txt"
-
-    full_train_ids: list[str] = []
-    if dev_train_split.is_file() and dev_val_split.is_file():
-        full_train_ids = sorted(list(set(read_split_file(dev_train_split) + read_split_file(dev_val_split))))
-    elif official_train.is_file():
-        full_train_ids = read_split_file(official_train)
-    else:
-        logger.error("Không tìm thấy tệp train split tại %s hoặc %s", args.splits_dir, official_train)
+    if not dev_train_split.is_file() or not dev_val_split.is_file():
+        logger.error(
+            "Không tìm thấy dev_train.txt hoặc dev_val.txt tại %s. "
+            "Hãy chạy scripts/prepare_data.py trước.",
+            args.splits_dir,
+        )
         sys.exit(1)
+    full_train_ids = sorted(set(read_split_file(dev_train_split) + read_split_file(dev_val_split)))
 
     logger.info("=== BẮT ĐẦU FINAL FIT TRÊN FULL OFFICIAL TRAIN (%d ẢNH) ===", len(full_train_ids))
 
@@ -122,7 +122,10 @@ def main() -> None:
             eta_min=app_cfg.training.eta_min,
         )
         amp = app_cfg.training.amp and (device.type == "cuda")
-        scaler = torch.amp.GradScaler("cuda", enabled=amp)
+        if hasattr(torch, "amp") and hasattr(torch.amp, "GradScaler"):
+            scaler = torch.amp.GradScaler("cuda", enabled=amp)
+        else:
+            scaler = torch.cuda.amp.GradScaler(enabled=amp)
 
         model.train()
         for epoch in range(1, fit_epochs + 1):

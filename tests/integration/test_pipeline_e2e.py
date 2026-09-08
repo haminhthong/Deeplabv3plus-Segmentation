@@ -97,7 +97,7 @@ def test_full_ml_lifecycle_synthetic_voc(synthetic_voc: Path, tmp_path: Path):
         dev_val_split=splits_dir / "dev_val.txt",
         checkpoint_dir=ckpt_dir,
     )
-    res = trainer.fit()
+    trainer.fit()
 
     assert (ckpt_dir / "best.ckpt").is_file()
     assert (ckpt_dir / "last.ckpt").is_file()

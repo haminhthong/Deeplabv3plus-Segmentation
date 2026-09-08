@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import io
-from typing import Optional
 
-import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 
-from vocseg.constants import IGNORE_INDEX, VOC_COLORMAP, mask_to_color_rgb
+from vocseg.constants import IGNORE_INDEX, mask_to_color_rgb
 
 
 def overlay_mask(

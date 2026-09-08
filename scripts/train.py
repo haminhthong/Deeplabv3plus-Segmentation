@@ -70,9 +70,9 @@ def main() -> None:
             "ignore_index": app_cfg.data.ignore_index,
         },
         "training": {
-            "epochs": args.epochs or app_cfg.training.epochs,
-            "batch_size": args.batch_size or app_cfg.training.batch_size,
-            "lr": args.lr or app_cfg.training.lr,
+            "epochs": args.epochs if args.epochs is not None else app_cfg.training.epochs,
+            "batch_size": args.batch_size if args.batch_size is not None else app_cfg.training.batch_size,
+            "lr": args.lr if args.lr is not None else app_cfg.training.lr,
             "weight_decay": app_cfg.training.weight_decay,
             "scheduler": app_cfg.training.scheduler,
             "eta_min": app_cfg.training.eta_min,

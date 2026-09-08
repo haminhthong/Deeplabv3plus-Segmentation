@@ -7,7 +7,7 @@ name = "vocseg"
 version = "1.0.0"
 description = "DeepLabV3+ ResNet50 Semantic Segmentation System on Pascal VOC 2012"
 authors = [{ name = "Hamin", email = "author@example.com" }]
-readme = "README.md"
+readme = "ReadMe.md"
 requires-python = ">=3.10"
 dependencies = [
     "torch>=2.0.0",
@@ -34,3 +34,6 @@ pythonpath = ["src", "."]
 [tool.ruff]
 line-length = 120
 target-version = "py310"
+
+[tool.ruff.lint]
+ignore = ["E402"]

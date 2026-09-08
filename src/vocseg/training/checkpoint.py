@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 
 from vocseg.constants import DEFAULT_IMAGE_SIZE, IGNORE_INDEX, IMAGE_MEAN, IMAGE_STD, NUM_CLASSES, VOC_CLASSES
-from vocseg.training.reproducibility import capture_rng_state, restore_rng_state
+from vocseg.training.reproducibility import capture_rng_state
 
 
 def get_git_commit() -> Optional[str]:
@@ -43,6 +43,7 @@ def save_resume_checkpoint(
     best_metric: float,
     config_dict: Dict[str, Any],
     manifest_sha256: str = "",
+    best_epoch: int = -1,
 ) -> None:
     """Lưu last.ckpt chứa đầy đủ trạng thái để resume chính xác 100%."""
     path = Path(path)
@@ -56,6 +57,7 @@ def save_resume_checkpoint(
         "scheduler_state_dict": scheduler.state_dict() if scheduler else None,
         "scaler_state_dict": scaler.state_dict() if scaler else None,
         "best_metric": best_metric,
+        "best_epoch": best_epoch,
         "rng_state": capture_rng_state(),
         "config": config_dict,
         "split_manifest_sha256": manifest_sha256,

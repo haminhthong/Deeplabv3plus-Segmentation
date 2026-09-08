@@ -12,8 +12,6 @@ from vocseg.evaluation.metrics import (
     SegmentationMetrics,
     compute_adaptive_tolerance_radius,
     compute_boundary_f1_score,
-    extract_boundary,
-    extract_confusion_analysis,
     save_metrics,
 )
 

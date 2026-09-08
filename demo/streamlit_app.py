@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import numpy as np
@@ -10,7 +9,7 @@ import streamlit as st
 import torch
 from PIL import Image
 
-from vocseg.constants import IGNORE_INDEX, NUM_CLASSES, VOC_CLASSES, mask_to_color_rgb
+from vocseg.constants import IGNORE_INDEX, mask_to_color_rgb
 from vocseg.inference.predictor import MAX_IMAGE_PIXELS, Predictor
 from vocseg.inference.visualization import overlay_mask
 
@@ -32,11 +31,7 @@ def main():
     st.caption("Pascal VOC 2012 — Original-Resolution Inference & Reliability Analysis")
 
     # Mặc định tìm model
-    default_ckpts = [
-        "checkpoints/final_model.pth",
-        "checkpoints/best.ckpt",
-        "outputs/deeplabv3plus_resnet50_voc_best.pth",
-    ]
+    default_ckpts = ["checkpoints/final_model.pth", "checkpoints/best.ckpt"]
     selected_ckpt = None
     for c in default_ckpts:
         if Path(c).is_file():

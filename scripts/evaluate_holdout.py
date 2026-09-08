@@ -40,13 +40,12 @@ def main() -> None:
         sys.exit(1)
 
     if not args.holdout_split.is_file():
-        # Fallback tìm official val.txt nếu chưa chạy prepare_data
-        cand_val = data_root / "ImageSets" / "Segmentation" / "val.txt"
-        if cand_val.is_file():
-            args.holdout_split = cand_val
-        else:
-            logger.error("Không tìm thấy tệp holdout split tại: %s hoặc %s", args.holdout_split, cand_val)
-            sys.exit(1)
+        logger.error(
+            "Không tìm thấy locked holdout split tại: %s. "
+            "Hãy chạy scripts/prepare_data.py trước.",
+            args.holdout_split,
+        )
+        sys.exit(1)
 
     logger.info("=== BẮT ĐẦU ĐÁNH GIÁ LOCKED HOLDOUT (OFFICIAL VOC VAL) ===")
     logger.info("Checkpoint: %s", args.checkpoint)

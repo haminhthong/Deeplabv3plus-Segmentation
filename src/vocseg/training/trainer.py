@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from vocseg.constants import IGNORE_INDEX, NUM_CLASSES
@@ -70,9 +69,10 @@ class Trainer:
         self.image_size = int(data_cfg.get("image_size", 320))
 
         # Khởi tạo mô hình
+        encoder_weights = config.get("model", {}).get("encoder_weights")
         self.model = build_deeplabv3plus(
             encoder="resnet50",
-            encoder_weights="imagenet" if resume_checkpoint_path is None else None,
+            encoder_weights=encoder_weights if resume_checkpoint_path is None else None,
             num_classes=NUM_CLASSES,
         ).to(self.device)
 
@@ -93,13 +93,21 @@ class Trainer:
             T_max=self.epochs,
             eta_min=float(train_cfg.get("eta_min", 1e-6)),
         )
-        self.scaler = torch.amp.GradScaler("cuda", enabled=self.amp)
+        if hasattr(torch, "amp") and hasattr(torch.amp, "GradScaler"):
+            self.scaler = torch.amp.GradScaler("cuda", enabled=self.amp)
+        else:
+            self.scaler = torch.cuda.amp.GradScaler(enabled=self.amp)
 
         self.start_epoch = 1
         self.best_miou = -1.0
         self.best_epoch = -1
         self.stale_epochs = 0
-        self.history_lines = ["epoch,train_loss,val_loss,val_miou_all,val_miou_fg,val_dice,pixel_acc"]
+        self.history_path = self.output_dir / "train_log.csv"
+        header = "epoch,train_loss,val_loss,val_miou_all,val_miou_fg,val_dice,pixel_acc"
+        if resume_checkpoint_path is not None and self.history_path.is_file():
+            self.history_lines = self.history_path.read_text(encoding="utf-8").splitlines() or [header]
+        else:
+            self.history_lines = [header]
 
         # Xử lý resume
         if resume_checkpoint_path is not None:
@@ -147,7 +155,6 @@ class Trainer:
             self.optimizer.load_state_dict(ckpt["optimizer_state_dict"])
         if "scheduler_state_dict" in ckpt and ckpt["scheduler_state_dict"]:
             self.scheduler.load_state_dict(ckpt["scheduler_state_dict"])
-            self.scheduler.T_max = self.epochs
         if self.amp and ckpt.get("scaler_state_dict"):
             self.scaler.load_state_dict(ckpt["scaler_state_dict"])
         if "rng_state" in ckpt:
@@ -155,6 +162,11 @@ class Trainer:
 
         self.start_epoch = int(ckpt.get("epoch", 0)) + 1
         self.best_miou = float(ckpt.get("best_metric", -1.0))
+        self.best_epoch = int(ckpt.get("best_epoch", -1))
+        if self.start_epoch > self.epochs:
+            raise ValueError(
+                f"Checkpoint đã ở epoch {self.start_epoch - 1}, không thể resume với epochs={self.epochs}"
+            )
         logger.info(
             "Đã phục hồi hoàn toàn trạng thái huấn luyện từ %s (Tiếp tục từ epoch %d, best mIoU=%.4f)",
             path,
@@ -228,22 +240,7 @@ class Trainer:
             self.history_lines.append(
                 f"{epoch},{train_loss:.6f},{val_loss:.6f},{val_miou_all:.6f},{val_miou_fg:.6f},{val_dice:.6f},{pixel_acc:.6f}"
             )
-            (self.output_dir / "train_log.csv").write_text("\n".join(self.history_lines), encoding="utf-8")
-
-            # 1. Lưu last.ckpt sau mỗi epoch
-            save_resume_checkpoint(
-                path=self.checkpoint_dir / "last.ckpt",
-                epoch=epoch,
-                model=self.model,
-                optimizer=self.optimizer,
-                scheduler=self.scheduler,
-                scaler=self.scaler,
-                best_metric=self.best_miou,
-                config_dict=self.config,
-                manifest_sha256=self.manifest_sha256,
-            )
-
-            # 2. Kiểm tra lưu best.ckpt theo primary metric (val_miou_all)
+            # Kiểm tra lưu best.ckpt theo primary metric (val_miou_all).
             if val_miou_all > self.best_miou:
                 self.best_miou = val_miou_all
                 self.best_epoch = epoch
@@ -268,6 +265,22 @@ class Trainer:
                 logger.info("--> Đạt kỷ lục mới! Đã cập nhật %s (mIoU=%.4f)", self.checkpoint_dir / "best.ckpt", val_miou_all)
             else:
                 self.stale_epochs += 1
+
+            self.history_path.write_text("\n".join(self.history_lines) + "\n", encoding="utf-8")
+
+            # Lưu last.ckpt sau khi cập nhật best metric để resume đúng trạng thái.
+            save_resume_checkpoint(
+                path=self.checkpoint_dir / "last.ckpt",
+                epoch=epoch,
+                model=self.model,
+                optimizer=self.optimizer,
+                scheduler=self.scheduler,
+                scaler=self.scaler,
+                best_metric=self.best_miou,
+                config_dict=self.config,
+                manifest_sha256=self.manifest_sha256,
+                best_epoch=self.best_epoch,
+            )
 
             if self.patience > 0 and self.stale_epochs >= self.patience:
                 logger.info("Dừng sớm (early stopping) sau %d epoch không cải thiện.", self.stale_epochs)

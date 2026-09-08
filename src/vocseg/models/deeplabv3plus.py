@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 import segmentation_models_pytorch as smp
-import torch
 import torch.nn as nn
 
 from vocseg.constants import NUM_CLASSES

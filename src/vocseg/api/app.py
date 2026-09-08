@@ -9,10 +9,8 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
 from PIL import Image
 
-from vocseg.constants import DEFAULT_IMAGE_SIZE
 from vocseg.inference.predictor import MAX_IMAGE_PIXELS, Predictor
 from vocseg.inference.visualization import mask_to_png_bytes
 
@@ -33,8 +31,6 @@ def get_checkpoint_path() -> Path:
         return Path("checkpoints/final_model.pth")
     if Path("checkpoints/best.ckpt").is_file():
         return Path("checkpoints/best.ckpt")
-    if Path("outputs/deeplabv3plus_resnet50_voc_best.pth").is_file():
-        return Path("outputs/deeplabv3plus_resnet50_voc_best.pth")
     return Path("checkpoints/final_model.pth")
 
 
@@ -62,12 +58,14 @@ def health_check():
         pred = get_predictor()
         device_str = pred.device.type
         model_str = f"deeplabv3plus-resnet50-v{pred.checkpoint_meta.get('model_version', '1')}"
+        status = "ok"
     except Exception:
         device_str = "uninitialized"
         model_str = "deeplabv3plus-resnet50-v1"
+        status = "unavailable"
 
     return {
-        "status": "ok",
+        "status": status,
         "model": model_str,
         "device": device_str,
     }
@@ -76,7 +74,11 @@ def health_check():
 @app.post("/segment")
 async def segment_image(file: UploadFile = File(...)):
     """Phân đoạn ảnh đầu vào và trả về siêu dữ liệu kèm mặt nạ PNG base64."""
-    if not file.content_type or not (file.content_type.startswith("image/") or file.filename.lower().endswith((".jpg", ".jpeg", ".png"))):
+    filename = file.filename or ""
+    if not file.content_type or not (
+        file.content_type.startswith("image/")
+        or filename.lower().endswith((".jpg", ".jpeg", ".png"))
+    ):
         raise HTTPException(status_code=400, detail="Tệp tải lên phải là ảnh (JPG hoặc PNG).")
 
     contents = await file.read()
