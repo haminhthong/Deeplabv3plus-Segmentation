@@ -73,7 +73,9 @@ def main():
         return
 
     if image.width * image.height > MAX_IMAGE_PIXELS:
-        st.error(f"Ảnh quá lớn ({image.width}x{image.height}). Vui lòng tải ảnh dưới {MAX_IMAGE_PIXELS // 1_000_000} MP.")
+        st.error(
+            f"Ảnh quá lớn ({image.width}x{image.height}). Vui lòng tải ảnh dưới {MAX_IMAGE_PIXELS // 1_000_000} MP."
+        )
         return
 
     if selected_ckpt is None:

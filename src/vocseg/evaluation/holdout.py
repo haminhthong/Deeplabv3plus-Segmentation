@@ -30,7 +30,7 @@ def evaluate_holdout_dataset(
     holdout_split_file: Path | str,
 ) -> Dict[str, Any]:
     """Đánh giá tập Holdout bị khóa (LOCKED) tại độ phân giải gốc của ảnh.
-    
+
     NGUYÊN TẮC: Sử dụng đúng 100% logic của Predictor Canonical để đảm bảo tính nhất quán (Parity).
     """
     data_root = Path(data_root)
@@ -90,11 +90,7 @@ def evaluate_holdout_dataset(
     mean_lat = float(np.mean(latencies_ms)) if latencies_ms else 0.0
     fps = len(sample_ids) / max(total_time, 1e-6)
 
-    device_name = (
-        torch.cuda.get_device_name(0)
-        if predictor.device.type == "cuda"
-        else platform.processor() or "CPU"
-    )
+    device_name = torch.cuda.get_device_name(0) if predictor.device.type == "cuda" else platform.processor() or "CPU"
 
     result["profiling"] = {
         "images_evaluated": len(sample_ids),

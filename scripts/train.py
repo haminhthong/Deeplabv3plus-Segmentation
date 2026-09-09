@@ -22,16 +22,27 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     configure_console()
-    parser = argparse.ArgumentParser(description="Huấn luyện DeepLabV3+ ResNet50 trên Pascal VOC 2012 (Development Phase)")
-    parser.add_argument("--config", type=Path, default=Path("configs/deeplabv3plus_resnet50_320.yaml"), help="File cấu hình YAML")
+    parser = argparse.ArgumentParser(
+        description="Huấn luyện DeepLabV3+ ResNet50 trên Pascal VOC 2012 (Development Phase)"
+    )
+    parser.add_argument(
+        "--config", type=Path, default=Path("configs/deeplabv3plus_resnet50_320.yaml"), help="File cấu hình YAML"
+    )
     parser.add_argument("--data-root", type=Path, default=None, help="Ghi đè đường dẫn data root")
     parser.add_argument("--epochs", type=int, default=None, help="Ghi đè số epoch")
     parser.add_argument("--batch-size", type=int, default=None, help="Ghi đè kích thước batch")
     parser.add_argument("--lr", type=float, default=None, help="Ghi đè learning rate")
     parser.add_argument("--output-dir", type=Path, default=None, help="Thư mục ghi log và kết quả")
     parser.add_argument("--checkpoint-dir", type=Path, default=Path("checkpoints"), help="Thư mục lưu checkpoints")
-    parser.add_argument("--splits-dir", type=Path, default=Path("artifacts/data/splits"), help="Thư mục chứa dev_train.txt và dev_val.txt")
-    parser.add_argument("--manifest", type=Path, default=Path("artifacts/data/dataset_manifest.json"), help="Dataset manifest file")
+    parser.add_argument(
+        "--splits-dir",
+        type=Path,
+        default=Path("artifacts/data/splits"),
+        help="Thư mục chứa dev_train.txt và dev_val.txt",
+    )
+    parser.add_argument(
+        "--manifest", type=Path, default=Path("artifacts/data/dataset_manifest.json"), help="Dataset manifest file"
+    )
     parser.add_argument("--resume", type=Path, default=None, help="Tiếp tục từ checkpoint (last.ckpt)")
     args = parser.parse_args()
 

@@ -65,11 +65,13 @@ def audit_voc_dataset(
             if img_hash in hash_to_id:
                 prev_split, prev_id = hash_to_id[img_hash]
                 exact_sha256_duplicates += 1
-                details["duplicate_hash_samples"].append({
-                    "hash": img_hash,
-                    "first": f"{prev_split}/{prev_id}",
-                    "second": f"{split_name}/{img_id}",
-                })
+                details["duplicate_hash_samples"].append(
+                    {
+                        "hash": img_hash,
+                        "first": f"{prev_split}/{prev_id}",
+                        "second": f"{split_name}/{img_id}",
+                    }
+                )
             else:
                 hash_to_id[img_hash] = (split_name, img_id)
 
@@ -78,11 +80,13 @@ def audit_voc_dataset(
                 with Image.open(img_path) as img, Image.open(mask_path) as mask:
                     if img.size != mask.size:
                         dimension_mismatches += 1
-                        details["mismatch_samples"].append({
-                            "id": img_id,
-                            "image_size": list(img.size),
-                            "mask_size": list(mask.size),
-                        })
+                        details["mismatch_samples"].append(
+                            {
+                                "id": img_id,
+                                "image_size": list(img.size),
+                                "mask_size": list(mask.size),
+                            }
+                        )
 
                     mask_arr = np.array(mask)
                     invalid = np.setdiff1d(mask_arr, list(range(NUM_CLASSES)) + [IGNORE_INDEX])
@@ -92,7 +96,7 @@ def audit_voc_dataset(
                     valid_pixels = mask_arr[mask_arr != IGNORE_INDEX]
                     if len(valid_pixels) > 0:
                         counts = np.bincount(valid_pixels, minlength=NUM_CLASSES)
-                        split_pixel_counts[:len(counts)] += counts[:NUM_CLASSES]
+                        split_pixel_counts[: len(counts)] += counts[:NUM_CLASSES]
                         total_valid_pixels += int(counts[:NUM_CLASSES].sum())
 
                         for c in np.unique(valid_pixels):
@@ -113,12 +117,8 @@ def audit_voc_dataset(
             "foreground_pixels": fg_px,
             "foreground_to_background_ratio": fg_bg_ratio,
             "present_classes_count": int(np.sum(split_pixel_counts > 0)),
-            "per_class_pixels": {
-                VOC_CLASSES[c]: int(split_pixel_counts[c]) for c in range(NUM_CLASSES)
-            },
-            "per_class_image_occurrences": {
-                VOC_CLASSES[c]: int(split_image_counts[c]) for c in range(NUM_CLASSES)
-            },
+            "per_class_pixels": {VOC_CLASSES[c]: int(split_pixel_counts[c]) for c in range(NUM_CLASSES)},
+            "per_class_image_occurrences": {VOC_CLASSES[c]: int(split_image_counts[c]) for c in range(NUM_CLASSES)},
         }
 
     status = "PASSED"

@@ -164,9 +164,7 @@ class Trainer:
         self.best_miou = float(ckpt.get("best_metric", -1.0))
         self.best_epoch = int(ckpt.get("best_epoch", -1))
         if self.start_epoch > self.epochs:
-            raise ValueError(
-                f"Checkpoint đã ở epoch {self.start_epoch - 1}, không thể resume với epochs={self.epochs}"
-            )
+            raise ValueError(f"Checkpoint đã ở epoch {self.start_epoch - 1}, không thể resume với epochs={self.epochs}")
         logger.info(
             "Đã phục hồi hoàn toàn trạng thái huấn luyện từ %s (Tiếp tục từ epoch %d, best mIoU=%.4f)",
             path,
@@ -262,7 +260,9 @@ class Trainer:
                     self.output_dir / "best_dev_metrics.json",
                     self.output_dir / "best_dev_per_class.csv",
                 )
-                logger.info("--> Đạt kỷ lục mới! Đã cập nhật %s (mIoU=%.4f)", self.checkpoint_dir / "best.ckpt", val_miou_all)
+                logger.info(
+                    "--> Đạt kỷ lục mới! Đã cập nhật %s (mIoU=%.4f)", self.checkpoint_dir / "best.ckpt", val_miou_all
+                )
             else:
                 self.stale_epochs += 1
 

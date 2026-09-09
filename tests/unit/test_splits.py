@@ -20,9 +20,7 @@ def test_multilabel_stratified_split():
     sample_ids = [f"sample_{i:03d}" for i in range(100)]
     labels_matrix = rng.binomial(1, 0.2, size=(100, 20))
 
-    train_ids, val_ids = multilabel_stratified_split(
-        sample_ids, labels_matrix, val_ratio=0.15, seed=42
-    )
+    train_ids, val_ids = multilabel_stratified_split(sample_ids, labels_matrix, val_ratio=0.15, seed=42)
 
     assert len(train_ids) + len(val_ids) == 100
     assert len(val_ids) == 15

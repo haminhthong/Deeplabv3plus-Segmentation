@@ -53,7 +53,7 @@ def dummy_predictor(tmp_path: Path) -> Predictor:
         (640, 480),  # Ảnh ngang
         (480, 640),  # Ảnh dọc
         (500, 500),  # Ảnh vuông
-        (120, 80),   # Ảnh nhỏ
+        (120, 80),  # Ảnh nhỏ
     ],
 )
 def test_predictor_output_dimensions_exact_parity(dummy_predictor: Predictor, width: int, height: int):

@@ -76,8 +76,7 @@ async def segment_image(file: UploadFile = File(...)):
     """Phân đoạn ảnh đầu vào và trả về siêu dữ liệu kèm mặt nạ PNG base64."""
     filename = file.filename or ""
     if not file.content_type or not (
-        file.content_type.startswith("image/")
-        or filename.lower().endswith((".jpg", ".jpeg", ".png"))
+        file.content_type.startswith("image/") or filename.lower().endswith((".jpg", ".jpeg", ".png"))
     ):
         raise HTTPException(status_code=400, detail="Tệp tải lên phải là ảnh (JPG hoặc PNG).")
 

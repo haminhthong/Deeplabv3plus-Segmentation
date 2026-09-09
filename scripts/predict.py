@@ -30,7 +30,9 @@ def main() -> None:
     configure_console()
     parser = argparse.ArgumentParser(description="Chạy dự đoán phân đoạn ảnh trên ảnh đơn lẻ")
     parser.add_argument("--image", type=Path, required=True, help="Đường dẫn ảnh đầu vào (JPG/PNG)")
-    parser.add_argument("--checkpoint", type=Path, default=Path("checkpoints/final_model.pth"), help="Đường dẫn checkpoint mô hình")
+    parser.add_argument(
+        "--checkpoint", type=Path, default=Path("checkpoints/final_model.pth"), help="Đường dẫn checkpoint mô hình"
+    )
     parser.add_argument("--output-dir", type=Path, default=Path("outputs/predictions"), help="Thư mục lưu kết quả")
     parser.add_argument("--alpha", type=float, default=0.5, help="Độ trong suốt overlay (0.0 - 1.0)")
     args = parser.parse_args()
@@ -85,7 +87,9 @@ def main() -> None:
         "latency_ms": res.latency_ms,
         "model_version": res.model_version,
     }
-    (args.output_dir / f"{stem}_metadata.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
+    (args.output_dir / f"{stem}_metadata.json").write_text(
+        json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
     logger.info("Hoàn tất! Thời gian: %.2f ms. Kết quả đã lưu tại: %s", res.latency_ms, args.output_dir)
     for c in res.classes_present:

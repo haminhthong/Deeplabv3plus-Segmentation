@@ -30,10 +30,10 @@ MAX_IMAGE_PIXELS = 25_000_000  # Giới hạn 25 MP tránh OOM
 
 @dataclass
 class PredictionResult:
-    hard_mask: np.ndarray             # [H_orig, W_orig] int64
-    max_prob_map: np.ndarray          # [H_orig, W_orig] float32
-    entropy_map: np.ndarray           # [H_orig, W_orig] float32 (Normalized Entropy)
-    original_size: Tuple[int, int]    # (W, H)
+    hard_mask: np.ndarray  # [H_orig, W_orig] int64
+    max_prob_map: np.ndarray  # [H_orig, W_orig] float32
+    entropy_map: np.ndarray  # [H_orig, W_orig] float32 (Normalized Entropy)
+    original_size: Tuple[int, int]  # (W, H)
     classes_present: List[Dict[str, Any]]
     mean_entropy: float
     mean_max_prob: float
@@ -88,9 +88,7 @@ class Predictor:
             )
         return image
 
-    def preprocess(
-        self, image: Image.Image
-    ) -> Tuple[torch.Tensor, Tuple[int, int, int, int], Tuple[int, int]]:
+    def preprocess(self, image: Image.Image) -> Tuple[torch.Tensor, Tuple[int, int, int, int], Tuple[int, int]]:
         """Letterbox và chuẩn hóa ảnh về Tensor kích thước model (320x320)."""
         w_orig, h_orig = image.size
         _, resized_w, resized_h, pad_left, pad_top, pad_right, pad_bottom = calculate_letterbox_geometry(
@@ -123,9 +121,7 @@ class Predictor:
         cropped_logits = logits[:, :, pad_top : pad_top + resized_h, pad_left : pad_left + resized_w]
 
         # 2. Resize song tuyến logits về kích thước ban đầu (h_orig, w_orig)
-        rescaled_logits = F.interpolate(
-            cropped_logits, size=(h_orig, w_orig), mode="bilinear", align_corners=False
-        )
+        rescaled_logits = F.interpolate(cropped_logits, size=(h_orig, w_orig), mode="bilinear", align_corners=False)
 
         # 3. Softmax xác suất
         probs = F.softmax(rescaled_logits, dim=1).squeeze(0)  # [C, H_orig, W_orig]
@@ -164,12 +160,14 @@ class Predictor:
             px = int(counts[c_id])
             if px > 0:
                 cov = float((px / total_pixels) * 100.0)
-                classes_present.append({
-                    "id": c_id,
-                    "name": VOC_CLASSES[c_id],
-                    "pixels": px,
-                    "coverage": round(cov, 2),
-                })
+                classes_present.append(
+                    {
+                        "id": c_id,
+                        "name": VOC_CLASSES[c_id],
+                        "pixels": px,
+                        "coverage": round(cov, 2),
+                    }
+                )
         classes_present.sort(key=lambda x: x["pixels"], reverse=True)
 
         return PredictionResult(

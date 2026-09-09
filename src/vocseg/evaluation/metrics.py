@@ -20,12 +20,7 @@ def extract_boundary(mask: np.ndarray) -> np.ndarray:
         return np.zeros_like(mask, dtype=bool)
     mask_int = mask.astype(np.uint8, copy=False)
     p = np.pad(mask_int, 1, mode="constant", constant_values=0)
-    eroded = (
-        p[0:-2, 1:-1]
-        & p[2:, 1:-1]
-        & p[1:-1, 0:-2]
-        & p[1:-1, 2:]
-    ).astype(bool)
+    eroded = (p[0:-2, 1:-1] & p[2:, 1:-1] & p[1:-1, 0:-2] & p[1:-1, 2:]).astype(bool)
     return mask & (~eroded)
 
 
@@ -36,12 +31,7 @@ def dilate_boundary(boundary: np.ndarray, radius: int = 2) -> np.ndarray:
     current = boundary.astype(np.uint8, copy=False)
     for _ in range(radius):
         p = np.pad(current, 1, mode="constant", constant_values=0)
-        current = (
-            p[0:-2, 1:-1]
-            | p[2:, 1:-1]
-            | p[1:-1, 0:-2]
-            | p[1:-1, 2:]
-        )
+        current = p[0:-2, 1:-1] | p[2:, 1:-1] | p[1:-1, 0:-2] | p[1:-1, 2:]
     return current.astype(bool)
 
 
@@ -155,14 +145,16 @@ def extract_confusion_analysis(
     for i in range(num_classes):
         for j in range(num_classes):
             if i != j and matrix[i, j] > 0 and true_count[i] > 0:
-                pairs.append({
-                    "true_class_id": i,
-                    "true_class_name": VOC_CLASSES[i] if i < len(VOC_CLASSES) else f"Class {i}",
-                    "pred_class_id": j,
-                    "pred_class_name": VOC_CLASSES[j] if j < len(VOC_CLASSES) else f"Class {j}",
-                    "confused_pixels": int(matrix[i, j]),
-                    "percent_of_true": float((matrix[i, j] / true_count[i]) * 100.0),
-                })
+                pairs.append(
+                    {
+                        "true_class_id": i,
+                        "true_class_name": VOC_CLASSES[i] if i < len(VOC_CLASSES) else f"Class {i}",
+                        "pred_class_id": j,
+                        "pred_class_name": VOC_CLASSES[j] if j < len(VOC_CLASSES) else f"Class {j}",
+                        "confused_pixels": int(matrix[i, j]),
+                        "percent_of_true": float((matrix[i, j] / true_count[i]) * 100.0),
+                    }
+                )
 
     pairs.sort(key=lambda p: p["confused_pixels"], reverse=True)
     top_pairs = pairs[:top_k_pairs]
@@ -202,18 +194,14 @@ class SegmentationMetrics:
             target_arr = np.asarray(targets)
 
         if pred_arr.shape != target_arr.shape:
-            raise ValueError(
-                f"Shape mismatch: pred {pred_arr.shape} != target {target_arr.shape}"
-            )
+            raise ValueError(f"Shape mismatch: pred {pred_arr.shape} != target {target_arr.shape}")
 
         pred_flat = pred_arr.reshape(-1)
         target_flat = target_arr.reshape(-1)
         valid = (target_flat != ignore_index) & (target_flat >= 0) & (target_flat < self.num_classes)
         valid &= (pred_flat >= 0) & (pred_flat < self.num_classes)
         indices = self.num_classes * target_flat[valid] + pred_flat[valid]
-        self.matrix += np.bincount(indices, minlength=self.num_classes**2).reshape(
-            self.num_classes, self.num_classes
-        )
+        self.matrix += np.bincount(indices, minlength=self.num_classes**2).reshape(self.num_classes, self.num_classes)
 
         if compute_boundary:
             if pred_arr.ndim == 3:
@@ -239,8 +227,12 @@ class SegmentationMetrics:
 
         iou = np.divide(correct, union, out=np.full_like(correct, np.nan, dtype=np.float64), where=union > 0)
         dice_denom = true_count + pred_count
-        dice = np.divide(2 * correct, dice_denom, out=np.full_like(correct, np.nan, dtype=np.float64), where=dice_denom > 0)
-        class_acc = np.divide(correct, true_count, out=np.full_like(correct, np.nan, dtype=np.float64), where=true_count > 0)
+        dice = np.divide(
+            2 * correct, dice_denom, out=np.full_like(correct, np.nan, dtype=np.float64), where=dice_denom > 0
+        )
+        class_acc = np.divide(
+            correct, true_count, out=np.full_like(correct, np.nan, dtype=np.float64), where=true_count > 0
+        )
         total = matrix.sum()
 
         mean_iou_all = float(np.nanmean(iou)) if np.any(~np.isnan(iou)) else 0.0
@@ -302,18 +294,26 @@ def save_metrics(metrics: Dict[str, Any], json_path: Path | str, csv_path: Optio
         for class_id in range(len(per_class_iou)):
             c_name = VOC_CLASSES[class_id] if class_id < len(VOC_CLASSES) else f"Class {class_id}"
             iou_val = None if np.isnan(per_class_iou[class_id]) else float(per_class_iou[class_id])
-            dice_val = None if (per_class_dice is None or np.isnan(per_class_dice[class_id])) else float(per_class_dice[class_id])
-            bf1_val = None if (per_class_bf1 is None or np.isnan(per_class_bf1[class_id])) else float(per_class_bf1[class_id])
+            dice_val = (
+                None
+                if (per_class_dice is None or np.isnan(per_class_dice[class_id]))
+                else float(per_class_dice[class_id])
+            )
+            bf1_val = (
+                None if (per_class_bf1 is None or np.isnan(per_class_bf1[class_id])) else float(per_class_bf1[class_id])
+            )
             px_val = int(per_class_pixels[class_id]) if per_class_pixels is not None else 0
 
-            classes_report.append({
-                "class_id": class_id,
-                "class_name": c_name,
-                "iou": iou_val,
-                "dice": dice_val,
-                "boundary_f1": bf1_val,
-                "pixels": px_val,
-            })
+            classes_report.append(
+                {
+                    "class_id": class_id,
+                    "class_name": c_name,
+                    "iou": iou_val,
+                    "dice": dice_val,
+                    "boundary_f1": bf1_val,
+                    "pixels": px_val,
+                }
+            )
 
     for key, value in metrics.items():
         if isinstance(value, np.ndarray) and value.ndim == 2:

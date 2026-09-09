@@ -41,7 +41,9 @@ def main() -> None:
     configure_console()
     parser = argparse.ArgumentParser(description="Final Fit trên toàn bộ dữ liệu official train của Pascal VOC 2012")
     parser.add_argument("--config", type=Path, default=Path("configs/deeplabv3plus_resnet50_320.yaml"))
-    parser.add_argument("--best-checkpoint", type=Path, default=Path("checkpoints/best.ckpt"), help="best.ckpt từ development phase")
+    parser.add_argument(
+        "--best-checkpoint", type=Path, default=Path("checkpoints/best.ckpt"), help="best.ckpt từ development phase"
+    )
     parser.add_argument("--data-root", type=Path, default=None)
     parser.add_argument("--splits-dir", type=Path, default=Path("artifacts/data/splits"))
     parser.add_argument("--manifest", type=Path, default=Path("artifacts/data/dataset_manifest.json"))
@@ -69,8 +71,7 @@ def main() -> None:
     dev_val_split = args.splits_dir / "dev_val.txt"
     if not dev_train_split.is_file() or not dev_val_split.is_file():
         logger.error(
-            "Không tìm thấy dev_train.txt hoặc dev_val.txt tại %s. "
-            "Hãy chạy scripts/prepare_data.py trước.",
+            "Không tìm thấy dev_train.txt hoặc dev_val.txt tại %s. Hãy chạy scripts/prepare_data.py trước.",
             args.splits_dir,
         )
         sys.exit(1)
@@ -151,7 +152,9 @@ def main() -> None:
 
             scheduler.step()
             avg_loss = epoch_loss / max(len(loader), 1)
-            logger.info("Final Fit Epoch %02d/%d | Loss=%.4f | LR=%.2e", epoch, fit_epochs, avg_loss, scheduler.get_last_lr()[0])
+            logger.info(
+                "Final Fit Epoch %02d/%d | Loss=%.4f | LR=%.2e", epoch, fit_epochs, avg_loss, scheduler.get_last_lr()[0]
+            )
 
         manifest_sha256 = ""
         if args.manifest.is_file():

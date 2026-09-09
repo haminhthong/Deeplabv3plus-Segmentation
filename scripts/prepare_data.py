@@ -82,9 +82,19 @@ def main() -> None:
         logger.info("Đã lưu dataset manifest tại: %s", manifest_path)
 
         logger.info("=== TỔNG KẾT DATA PIPELINE ===")
-        logger.info("Dev Train: %d ảnh (SHA-256: %s...)", splits_info["dev_train"]["count"], splits_info["dev_train"]["sha256"][:12])
-        logger.info("Dev Val:   %d ảnh (SHA-256: %s...)", splits_info["dev_val"]["count"], splits_info["dev_val"]["sha256"][:12])
-        logger.info("Holdout:   %d ảnh (SHA-256: %s... - LOCKED)", splits_info["holdout"]["count"], splits_info["holdout"]["sha256"][:12])
+        logger.info(
+            "Dev Train: %d ảnh (SHA-256: %s...)",
+            splits_info["dev_train"]["count"],
+            splits_info["dev_train"]["sha256"][:12],
+        )
+        logger.info(
+            "Dev Val:   %d ảnh (SHA-256: %s...)", splits_info["dev_val"]["count"], splits_info["dev_val"]["sha256"][:12]
+        )
+        logger.info(
+            "Holdout:   %d ảnh (SHA-256: %s... - LOCKED)",
+            splits_info["holdout"]["count"],
+            splits_info["holdout"]["sha256"][:12],
+        )
         logger.info("Trạng thái Audit: %s", audit_report.audit_status)
 
         if audit_report.audit_status != "PASSED":

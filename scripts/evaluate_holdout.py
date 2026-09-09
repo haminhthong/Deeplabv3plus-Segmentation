@@ -25,7 +25,12 @@ def main() -> None:
     configure_console()
     parser = argparse.ArgumentParser(description="Đánh giá mô hình cuối cùng trên Locked Holdout (Official VOC Val)")
     parser.add_argument("--config", type=Path, default=Path("configs/deeplabv3plus_resnet50_320.yaml"))
-    parser.add_argument("--checkpoint", type=Path, default=Path("checkpoints/final_model.pth"), help="Đường dẫn final_model.pth hoặc best.ckpt")
+    parser.add_argument(
+        "--checkpoint",
+        type=Path,
+        default=Path("checkpoints/final_model.pth"),
+        help="Đường dẫn final_model.pth hoặc best.ckpt",
+    )
     parser.add_argument("--data-root", type=Path, default=None)
     parser.add_argument("--holdout-split", type=Path, default=Path("artifacts/data/splits/holdout.txt"))
     parser.add_argument("--output-report", type=Path, default=Path("outputs/final_holdout_report.json"))
@@ -41,8 +46,7 @@ def main() -> None:
 
     if not args.holdout_split.is_file():
         logger.error(
-            "Không tìm thấy locked holdout split tại: %s. "
-            "Hãy chạy scripts/prepare_data.py trước.",
+            "Không tìm thấy locked holdout split tại: %s. Hãy chạy scripts/prepare_data.py trước.",
             args.holdout_split,
         )
         sys.exit(1)
@@ -72,7 +76,13 @@ def main() -> None:
 
     prof = result["profiling"]
     lat = prof["latency_ms_per_image"]
-    logger.info("Độ trễ suy luận ảnh gốc: Mean=%.2f ms, p50=%.2f ms, p95=%.2f ms (%.1f FPS)", lat["mean"], lat["p50"], lat["p95"], prof["fps"])
+    logger.info(
+        "Độ trễ suy luận ảnh gốc: Mean=%.2f ms, p50=%.2f ms, p95=%.2f ms (%.1f FPS)",
+        lat["mean"],
+        lat["p50"],
+        lat["p95"],
+        prof["fps"],
+    )
 
     if result.get("best_classes"):
         best_str = ", ".join(f"{c['class_name']} ({c['iou']:.2f})" for c in result["best_classes"][:3])

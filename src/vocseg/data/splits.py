@@ -60,7 +60,7 @@ def multilabel_stratified_split(
     seed: int = 42,
 ) -> Tuple[List[str], List[str]]:
     """Phân tầng đa nhãn (Multilabel Stratification) theo phương pháp tham lam (Greedy / Iterative).
-    
+
     Đảm bảo phân bố của 20 lớp tiền cảnh giữa train và val đạt tỷ lệ đồng đều nhất có thể.
     """
     n_samples = len(sample_ids)
@@ -78,7 +78,7 @@ def multilabel_stratified_split(
 
     # Tính mục tiêu số lượng mẫu dương cho mỗi fold
     target_proportions = np.array([n_train / n_samples, n_val / n_samples])
-    
+
     # Khởi tạo danh sách kết quả
     folds: List[List[int]] = [[], []]
     fold_counts = np.zeros(2, dtype=np.int64)
@@ -101,7 +101,7 @@ def multilabel_stratified_split(
 
     for idx in sorted_indices:
         sample_labels = labels_matrix[idx]
-        
+
         # Nếu mẫu không có nhãn tiền cảnh nào (chỉ background)
         if sample_labels.sum() == 0:
             assigned_fold = 0 if (fold_counts[0] / n_train) <= (fold_counts[1] / n_val) else 1
@@ -118,7 +118,7 @@ def multilabel_stratified_split(
                 target_f = labels_matrix.sum(axis=0) * target_proportions[f]
                 diff = np.abs(temp_label_counts - target_f)
                 errors.append(float(diff.sum()))
-            
+
             assigned_fold = int(np.argmin(errors))
             if errors[assigned_fold] == float("inf"):
                 assigned_fold = 0 if fold_counts[0] < n_train else 1
@@ -139,7 +139,7 @@ def create_development_and_holdout_splits(
     seed: int = 42,
 ) -> Dict[str, Any]:
     """Tạo split dev_train, dev_val và holdout từ official VOC2012 ImageSets.
-    
+
     TUYỆT ĐỐI KHÔNG DÙNG FALLBACK 100 ID. Nếu thiếu VOC -> Báo lỗi ngay lập tức.
     """
     data_root = Path(data_root)
