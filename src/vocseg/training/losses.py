@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import torch
-import torch.nn as nn
 from segmentation_models_pytorch.losses import DiceLoss
+from torch import nn
 
 from vocseg.constants import IGNORE_INDEX
 

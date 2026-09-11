@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import random
 from pathlib import Path
+
 import numpy as np
 import pytest
 import torch
-import torch.nn as nn
+from torch import nn
 
 from vocseg.models.deeplabv3plus import validate_checkpoint_metadata
 from vocseg.training.checkpoint import (

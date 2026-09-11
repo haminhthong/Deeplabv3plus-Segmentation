@@ -68,7 +68,7 @@ def main():
     try:
         with Image.open(uploaded) as src:
             image = src.convert("RGB")
-    except Exception:
+    except (OSError, ValueError, Image.DecompressionBombError):
         st.error("Không thể đọc tệp ảnh được tải lên. Định dạng không hợp lệ.")
         return
 
@@ -86,7 +86,7 @@ def main():
         with st.spinner("Đang thực hiện suy luận tại độ phân giải gốc..."):
             predictor = load_predictor_cached(selected_ckpt)
             res = predictor.predict(image)
-    except Exception as ex:
+    except (RuntimeError, ValueError) as ex:
         st.error(f"Lỗi suy luận: {ex}")
         return
 

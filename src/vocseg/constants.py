@@ -93,7 +93,7 @@ def mask_to_color_rgb(mask: np.ndarray, ignore_index: int = IGNORE_INDEX) -> np.
         raise ValueError(f"Mặt nạ phải có 2 chiều, nhận được hình dạng {mask.shape}")
 
     valid = (mask >= 0) & (mask < len(VOC_COLORMAP))
-    rgb = np.zeros(mask.shape + (3,), dtype=np.uint8)
+    rgb = np.zeros((*mask.shape, 3), dtype=np.uint8)
     rgb[valid] = VOC_COLORMAP[mask[valid]]
     if ignore_index is not None:
         rgb[mask == ignore_index] = [255, 255, 255]

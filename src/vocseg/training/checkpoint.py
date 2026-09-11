@@ -6,16 +6,16 @@ import hashlib
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from vocseg.constants import DEFAULT_IMAGE_SIZE, IGNORE_INDEX, IMAGE_MEAN, IMAGE_STD, NUM_CLASSES, VOC_CLASSES
 from vocseg.training.reproducibility import capture_rng_state
 
 
-def get_git_commit() -> Optional[str]:
+def get_git_commit() -> str | None:
     """Lấy mã Git SHA của commit hiện tại."""
     try:
         return subprocess.check_output(
@@ -27,7 +27,7 @@ def get_git_commit() -> Optional[str]:
         return None
 
 
-def calculate_dict_sha256(data: Dict[str, Any]) -> str:
+def calculate_dict_sha256(data: dict[str, Any]) -> str:
     """Tính SHA-256 từ nội dung chuỗi của từ điển cấu hình."""
     content = str(sorted(data.items())).encode("utf-8")
     return hashlib.sha256(content).hexdigest()
@@ -41,7 +41,7 @@ def save_resume_checkpoint(
     scheduler: Any,
     scaler: Any,
     best_metric: float,
-    config_dict: Dict[str, Any],
+    config_dict: dict[str, Any],
     manifest_sha256: str = "",
     best_epoch: int = -1,
 ) -> None:
@@ -76,8 +76,8 @@ def save_best_checkpoint(
     scheduler: Any,
     scaler: Any,
     best_miou: float,
-    config_dict: Dict[str, Any],
-    val_metrics: Dict[str, Any],
+    config_dict: dict[str, Any],
+    val_metrics: dict[str, Any],
     manifest_sha256: str = "",
 ) -> None:
     """Lưu best.ckpt: Mô hình phát triển tốt nhất theo validation mIoU."""
@@ -103,7 +103,7 @@ def save_best_checkpoint(
 def save_final_model(
     path: Path | str,
     model: nn.Module,
-    config_dict: Dict[str, Any],
+    config_dict: dict[str, Any],
     trained_epochs: int,
     manifest_sha256: str = "",
     model_version: str = "1.0.0",
@@ -144,12 +144,12 @@ def save_final_model(
 def load_checkpoint(
     path: Path | str,
     device: torch.device,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Tải và trả về từ điển checkpoint kèm siêu dữ liệu."""
     path = Path(path)
     if not path.is_file():
         raise FileNotFoundError(f"Không tìm thấy file checkpoint: {path}")
     checkpoint = torch.load(path, map_location=device, weights_only=False)
     if not isinstance(checkpoint, dict):
-        raise ValueError(f"Định dạng checkpoint không hợp lệ: {path}")
+        raise TypeError(f"Định dạng checkpoint không hợp lệ: {path}")
     return checkpoint

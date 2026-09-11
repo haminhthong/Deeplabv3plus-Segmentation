@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import io
+
 import pytest
 import torch
-import torch.nn as nn
 from fastapi.testclient import TestClient
 from PIL import Image
+from torch import nn
 
 from vocseg.api.app import app, set_predictor
 from vocseg.inference.predictor import Predictor

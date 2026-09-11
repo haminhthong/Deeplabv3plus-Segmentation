@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 from PIL import Image
@@ -15,7 +15,7 @@ from vocseg.schemas import AuditReport, DatasetManifest
 
 def audit_voc_dataset(
     data_root: Path,
-    split_ids_map: Dict[str, List[str]],
+    split_ids_map: dict[str, list[str]],
 ) -> AuditReport:
     """Audit toàn diện tính toàn vẹn dữ liệu, kích thước, phân bố lớp và kiểm tra rò rỉ SHA-256."""
     data_root = Path(data_root)
@@ -30,8 +30,8 @@ def audit_voc_dataset(
     exact_sha256_duplicates = 0
 
     seen_ids: set[str] = set()
-    hash_to_id: Dict[str, tuple[str, str]] = {}
-    details: Dict[str, Any] = {
+    hash_to_id: dict[str, tuple[str, str]] = {}
+    details: dict[str, Any] = {
         "class_distribution": {},
         "mismatch_samples": [],
         "duplicate_hash_samples": [],
@@ -89,7 +89,7 @@ def audit_voc_dataset(
                         )
 
                     mask_arr = np.array(mask)
-                    invalid = np.setdiff1d(mask_arr, list(range(NUM_CLASSES)) + [IGNORE_INDEX])
+                    invalid = np.setdiff1d(mask_arr, [*list(range(NUM_CLASSES)), IGNORE_INDEX])
                     if len(invalid) > 0:
                         invalid_mask_values += 1
 
@@ -102,7 +102,7 @@ def audit_voc_dataset(
                         for c in np.unique(valid_pixels):
                             if c < NUM_CLASSES:
                                 split_image_counts[c] += 1
-            except Exception as ex:
+            except (OSError, ValueError, Image.DecompressionBombError) as ex:
                 missing_images += 1
                 details["mismatch_samples"].append({"id": img_id, "error": str(ex)})
 
@@ -152,7 +152,7 @@ def audit_voc_dataset(
 
 def generate_dataset_manifest(
     data_root: Path,
-    splits_info: Dict[str, Any],
+    splits_info: dict[str, Any],
     audit_report: AuditReport,
     seed: int = 42,
 ) -> DatasetManifest:

@@ -69,35 +69,13 @@ def main() -> None:
         manifest_sha256 = calculate_file_sha256(args.manifest)
 
     # Chuyển đổi thành từ điển cấu hình và áp dụng CLI overrides
-    cfg_dict = {
-        "model": {
-            "architecture": app_cfg.model.architecture,
-            "encoder": app_cfg.model.encoder,
-            "encoder_weights": app_cfg.model.encoder_weights,
-            "num_classes": app_cfg.model.num_classes,
-        },
-        "data": {
-            "image_size": app_cfg.data.image_size,
-            "ignore_index": app_cfg.data.ignore_index,
-        },
-        "training": {
-            "epochs": args.epochs if args.epochs is not None else app_cfg.training.epochs,
-            "batch_size": args.batch_size if args.batch_size is not None else app_cfg.training.batch_size,
-            "lr": args.lr if args.lr is not None else app_cfg.training.lr,
-            "weight_decay": app_cfg.training.weight_decay,
-            "scheduler": app_cfg.training.scheduler,
-            "eta_min": app_cfg.training.eta_min,
-            "amp": app_cfg.training.amp,
-            "seed": app_cfg.training.seed,
-            "num_workers": app_cfg.training.num_workers,
-            "patience": app_cfg.training.patience,
-            "deterministic": app_cfg.training.deterministic,
-        },
-        "loss": {
-            "cross_entropy": app_cfg.loss.cross_entropy,
-            "dice": app_cfg.loss.dice,
-        },
-    }
+    cfg_dict = app_cfg.to_dict()
+    if args.epochs is not None:
+        cfg_dict["training"]["epochs"] = args.epochs
+    if args.batch_size is not None:
+        cfg_dict["training"]["batch_size"] = args.batch_size
+    if args.lr is not None:
+        cfg_dict["training"]["lr"] = args.lr
 
     trainer = Trainer(
         config=cfg_dict,

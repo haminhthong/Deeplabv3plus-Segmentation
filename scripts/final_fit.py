@@ -12,7 +12,6 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-import tempfile
 from pathlib import Path
 
 import torch
@@ -79,105 +78,96 @@ def main() -> None:
 
     logger.info("=== BẮT ĐẦU FINAL FIT TRÊN FULL OFFICIAL TRAIN (%d ẢNH) ===", len(full_train_ids))
 
-    # Tạo tệp split tạm thời
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as tmp:
-        tmp.write("\n".join(full_train_ids) + "\n")
-        temp_split_path = Path(tmp.name)
+    train_ds = VOCSegmentationDataset(
+        root=data_root,
+        ids=full_train_ids,
+        joint_transform=TrainJointTransform(app_cfg.data.image_size, app_cfg.data.image_size),
+    )
+    generator = set_seed(app_cfg.training.seed, app_cfg.training.deterministic)
+    loader = DataLoader(
+        train_ds,
+        batch_size=app_cfg.training.batch_size,
+        shuffle=True,
+        num_workers=app_cfg.training.num_workers,
+        pin_memory=(device.type == "cuda"),
+        generator=generator,
+    )
 
-    try:
-        train_ds = VOCSegmentationDataset(
-            root=data_root,
-            split_file=temp_split_path,
-            joint_transform=TrainJointTransform(app_cfg.data.image_size, app_cfg.data.image_size),
+    # Khởi tạo mô hình mới tinh từ ImageNet
+    model = build_deeplabv3plus(
+        encoder="resnet50",
+        encoder_weights="imagenet",
+        num_classes=NUM_CLASSES,
+    ).to(device)
+
+    criterion = CombinedLoss(
+        ce_weight=app_cfg.loss.cross_entropy,
+        dice_weight=app_cfg.loss.dice,
+        ignore_index=IGNORE_INDEX,
+    )
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=app_cfg.training.lr,
+        weight_decay=app_cfg.training.weight_decay,
+    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer,
+        T_max=fit_epochs,
+        eta_min=app_cfg.training.eta_min,
+    )
+    amp = app_cfg.training.amp and (device.type == "cuda")
+    if hasattr(torch, "amp") and hasattr(torch.amp, "GradScaler"):
+        scaler = torch.amp.GradScaler("cuda", enabled=amp)
+    else:
+        scaler = torch.cuda.amp.GradScaler(enabled=amp)
+
+    model.train()
+    for epoch in range(1, fit_epochs + 1):
+        epoch_loss = 0.0
+        for images, masks in loader:
+            images = images.to(device, non_blocking=True)
+            masks = masks.to(device, non_blocking=True)
+
+            with torch.autocast(device_type=device.type, enabled=amp):
+                logits = model(images)
+                loss = criterion(logits, masks)
+
+            optimizer.zero_grad(set_to_none=True)
+            if amp:
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                loss.backward()
+                optimizer.step()
+
+            epoch_loss += loss.item()
+
+        scheduler.step()
+        avg_loss = epoch_loss / max(len(loader), 1)
+        logger.info(
+            "Final Fit Epoch %02d/%d | Loss=%.4f | LR=%.2e", epoch, fit_epochs, avg_loss, scheduler.get_last_lr()[0]
         )
-        generator = set_seed(app_cfg.training.seed, app_cfg.training.deterministic)
-        loader = DataLoader(
-            train_ds,
-            batch_size=app_cfg.training.batch_size,
-            shuffle=True,
-            num_workers=app_cfg.training.num_workers,
-            pin_memory=(device.type == "cuda"),
-            generator=generator,
-        )
 
-        # Khởi tạo mô hình mới tinh từ ImageNet
-        model = build_deeplabv3plus(
-            encoder="resnet50",
-            encoder_weights="imagenet",
-            num_classes=NUM_CLASSES,
-        ).to(device)
+    manifest_sha256 = ""
+    if args.manifest.is_file():
+        manifest_sha256 = calculate_file_sha256(args.manifest)
 
-        criterion = CombinedLoss(
-            ce_weight=app_cfg.loss.cross_entropy,
-            dice_weight=app_cfg.loss.dice,
-            ignore_index=IGNORE_INDEX,
-        )
-        optimizer = torch.optim.AdamW(
-            model.parameters(),
-            lr=app_cfg.training.lr,
-            weight_decay=app_cfg.training.weight_decay,
-        )
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer,
-            T_max=fit_epochs,
-            eta_min=app_cfg.training.eta_min,
-        )
-        amp = app_cfg.training.amp and (device.type == "cuda")
-        if hasattr(torch, "amp") and hasattr(torch.amp, "GradScaler"):
-            scaler = torch.amp.GradScaler("cuda", enabled=amp)
-        else:
-            scaler = torch.cuda.amp.GradScaler(enabled=amp)
+    cfg_dict = {
+        "model": {"architecture": "deeplabv3plus", "encoder": "resnet50", "num_classes": NUM_CLASSES},
+        "data": {"image_size": app_cfg.data.image_size, "ignore_index": IGNORE_INDEX},
+        "training": {"seed": app_cfg.training.seed, "epochs": fit_epochs, "lr": app_cfg.training.lr},
+    }
 
-        model.train()
-        for epoch in range(1, fit_epochs + 1):
-            epoch_loss = 0.0
-            for images, masks in loader:
-                images = images.to(device, non_blocking=True)
-                masks = masks.to(device, non_blocking=True)
-
-                with torch.autocast(device_type=device.type, enabled=amp):
-                    logits = model(images)
-                    loss = criterion(logits, masks)
-
-                optimizer.zero_grad(set_to_none=True)
-                if amp:
-                    scaler.scale(loss).backward()
-                    scaler.step(optimizer)
-                    scaler.update()
-                else:
-                    loss.backward()
-                    optimizer.step()
-
-                epoch_loss += loss.item()
-
-            scheduler.step()
-            avg_loss = epoch_loss / max(len(loader), 1)
-            logger.info(
-                "Final Fit Epoch %02d/%d | Loss=%.4f | LR=%.2e", epoch, fit_epochs, avg_loss, scheduler.get_last_lr()[0]
-            )
-
-        manifest_sha256 = ""
-        if args.manifest.is_file():
-            manifest_sha256 = calculate_file_sha256(args.manifest)
-
-        cfg_dict = {
-            "model": {"architecture": "deeplabv3plus", "encoder": "resnet50", "num_classes": NUM_CLASSES},
-            "data": {"image_size": app_cfg.data.image_size, "ignore_index": IGNORE_INDEX},
-            "training": {"seed": app_cfg.training.seed, "epochs": fit_epochs, "lr": app_cfg.training.lr},
-        }
-
-        # Lưu final_model.pth tinh gọn
-        save_final_model(
-            path=args.output_path,
-            model=model,
-            config_dict=cfg_dict,
-            trained_epochs=fit_epochs,
-            manifest_sha256=manifest_sha256,
-        )
-        logger.info("=== HOÀN TẤT FINAL FIT! ARTIFACT SẴN SÀNG: %s ===", args.output_path)
-
-    finally:
-        temp_split_path.unlink(missing_ok=True)
+    # Lưu final_model.pth tinh gọn
+    save_final_model(
+        path=args.output_path,
+        model=model,
+        config_dict=cfg_dict,
+        trained_epochs=fit_epochs,
+        manifest_sha256=manifest_sha256,
+    )
+    logger.info("=== HOÀN TẤT FINAL FIT! ARTIFACT SẴN SÀNG: %s ===", args.output_path)
 
 
 if __name__ == "__main__":

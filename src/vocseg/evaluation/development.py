@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.utils.data import DataLoader
 
 from vocseg.constants import IGNORE_INDEX, NUM_CLASSES
@@ -20,7 +20,7 @@ def evaluate_development(
     device: torch.device,
     num_classes: int = NUM_CLASSES,
     ignore_index: int = IGNORE_INDEX,
-) -> Tuple[float, Dict[str, Any]]:
+) -> tuple[float, dict[str, Any]]:
     """Đánh giá nhanh trên không gian model letterboxed (320x320) sau mỗi epoch."""
     was_training = model.training
     model.eval()

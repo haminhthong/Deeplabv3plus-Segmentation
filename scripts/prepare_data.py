@@ -101,8 +101,8 @@ def main() -> None:
             logger.warning("Audit phát hiện bất thường trong dữ liệu! Vui lòng kiểm tra %s", audit_path)
             sys.exit(1)
 
-    except Exception as ex:
-        logger.error("Lỗi trong quá trình chuẩn bị dữ liệu: %s", ex, exc_info=True)
+    except Exception:
+        logger.exception("Lỗi trong quá trình chuẩn bị dữ liệu")
         sys.exit(1)
 
 

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import random
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 import torch
@@ -28,9 +29,9 @@ def set_seed(seed: int = 42, deterministic: bool = False) -> torch.Generator:
     return g
 
 
-def capture_rng_state() -> Dict[str, Any]:
+def capture_rng_state() -> dict[str, Any]:
     """Chụp lại toàn bộ trạng thái RNG để phục vụ resume chính xác."""
-    state: Dict[str, Any] = {
+    state: dict[str, Any] = {
         "python": random.getstate(),
         "numpy": np.random.get_state(),
         "torch": torch.get_rng_state(),
@@ -40,7 +41,7 @@ def capture_rng_state() -> Dict[str, Any]:
     return state
 
 
-def restore_rng_state(state: Dict[str, Any]) -> None:
+def restore_rng_state(state: dict[str, Any]) -> None:
     """Khôi phục lại toàn bộ trạng thái RNG từ checkpoint."""
     if not isinstance(state, dict):
         return
@@ -52,7 +53,5 @@ def restore_rng_state(state: Dict[str, Any]) -> None:
     if "torch" in state:
         torch.set_rng_state(state["torch"])
     if "cuda" in state and torch.cuda.is_available():
-        try:
+        with contextlib.suppress(RuntimeError, TypeError, ValueError):
             torch.cuda.set_rng_state_all(state["cuda"])
-        except Exception:
-            pass

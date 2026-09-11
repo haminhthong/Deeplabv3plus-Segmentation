@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import segmentation_models_pytorch as smp
-import torch.nn as nn
+from torch import nn
 
 from vocseg.constants import NUM_CLASSES
 
 
 def build_deeplabv3plus(
     encoder: str = "resnet50",
-    encoder_weights: Optional[str] = "imagenet",
+    encoder_weights: str | None = "imagenet",
     num_classes: int = NUM_CLASSES,
 ) -> nn.Module:
     """Khởi tạo mô hình DeepLabV3+ ResNet50 theo chuẩn sản phẩm.
@@ -34,7 +34,7 @@ def build_deeplabv3plus(
 
 
 def validate_checkpoint_metadata(
-    checkpoint: Dict[str, Any],
+    checkpoint: dict[str, Any],
     expected_num_classes: int = NUM_CLASSES,
     expected_encoder: str = "resnet50",
     expected_arch: str = "deeplabv3plus",

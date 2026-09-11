@@ -1,5 +1,5 @@
 """Inference module for VOC Segmentation."""
 
-from vocseg.inference.predictor import Predictor, PredictionResult
+from vocseg.inference.predictor import PredictionResult, Predictor
 
-__all__ = ["Predictor", "PredictionResult"]
+__all__ = ["PredictionResult", "Predictor"]

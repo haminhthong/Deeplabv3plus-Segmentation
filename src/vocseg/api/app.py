@@ -6,7 +6,7 @@ import base64
 import io
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Annotated
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from PIL import Image
@@ -20,7 +20,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-_PREDICTOR_INSTANCE: Optional[Predictor] = None
+_PREDICTOR_INSTANCE: Predictor | None = None
 
 
 def get_checkpoint_path() -> Path:
@@ -59,7 +59,7 @@ def health_check():
         device_str = pred.device.type
         model_str = f"deeplabv3plus-resnet50-v{pred.checkpoint_meta.get('model_version', '1')}"
         status = "ok"
-    except Exception:
+    except (FileNotFoundError, RuntimeError, OSError, ValueError):
         device_str = "uninitialized"
         model_str = "deeplabv3plus-resnet50-v1"
         status = "unavailable"
@@ -72,7 +72,7 @@ def health_check():
 
 
 @app.post("/segment")
-async def segment_image(file: UploadFile = File(...)):
+async def segment_image(file: Annotated[UploadFile, File(...)]):
     """Phân đoạn ảnh đầu vào và trả về siêu dữ liệu kèm mặt nạ PNG base64."""
     filename = file.filename or ""
     if not file.content_type or not (
@@ -87,20 +87,22 @@ async def segment_image(file: UploadFile = File(...)):
     try:
         image = Image.open(io.BytesIO(contents))
         image.load()
-    except Exception as ex:
-        raise HTTPException(status_code=400, detail=f"Không thể đọc file ảnh: {ex}")
+    except (OSError, ValueError, Image.DecompressionBombError) as ex:
+        raise HTTPException(status_code=400, detail=f"Không thể đọc file ảnh: {ex}") from ex
 
     if image.width * image.height > MAX_IMAGE_PIXELS:
         raise HTTPException(
             status_code=413,
-            detail=f"Kích thước ảnh vượt quá giới hạn cho phép ({image.width}x{image.height} > {MAX_IMAGE_PIXELS} pixels)",
+            detail=(
+                f"Kích thước ảnh vượt quá giới hạn cho phép ({image.width}x{image.height} > {MAX_IMAGE_PIXELS} pixels)"
+            ),
         )
 
     try:
         predictor = get_predictor()
         res = predictor.predict(image)
-    except Exception as ex:
-        raise HTTPException(status_code=500, detail=f"Lỗi trong quá trình suy luận: {ex}")
+    except (RuntimeError, ValueError) as ex:
+        raise HTTPException(status_code=500, detail=f"Lỗi trong quá trình suy luận: {ex}") from ex
 
     # Encode mask thành base64 PNG
     png_bytes = mask_to_png_bytes(res.hard_mask)

@@ -5,14 +5,14 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
 import torch.nn.functional as F
+import torchvision.transforms.functional as TF
 from PIL import Image, ImageOps
 from torchvision import transforms
-import torchvision.transforms.functional as TF
 
 from vocseg.constants import (
     DEFAULT_IMAGE_SIZE,
@@ -33,8 +33,8 @@ class PredictionResult:
     hard_mask: np.ndarray  # [H_orig, W_orig] int64
     max_prob_map: np.ndarray  # [H_orig, W_orig] float32
     entropy_map: np.ndarray  # [H_orig, W_orig] float32 (Normalized Entropy)
-    original_size: Tuple[int, int]  # (W, H)
-    classes_present: List[Dict[str, Any]]
+    original_size: tuple[int, int]  # (W, H)
+    classes_present: list[dict[str, Any]]
     mean_entropy: float
     mean_max_prob: float
     latency_ms: float
@@ -47,12 +47,12 @@ class Predictor:
     def __init__(
         self,
         checkpoint_path: Path | str,
-        device: Optional[torch.device] = None,
+        device: torch.device | None = None,
         image_size: int = DEFAULT_IMAGE_SIZE,
     ) -> None:
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.image_size = image_size
-        self.checkpoint_meta: Dict[str, Any] = {}
+        self.checkpoint_meta: dict[str, Any] = {}
         self.model = self._load_model_from_checkpoint(checkpoint_path)
 
     def _load_model_from_checkpoint(self, checkpoint_path: Path | str) -> torch.nn.Module:
@@ -88,7 +88,7 @@ class Predictor:
             )
         return image
 
-    def preprocess(self, image: Image.Image) -> Tuple[torch.Tensor, Tuple[int, int, int, int], Tuple[int, int]]:
+    def preprocess(self, image: Image.Image) -> tuple[torch.Tensor, tuple[int, int, int, int], tuple[int, int]]:
         """Letterbox và chuẩn hóa ảnh về Tensor kích thước model (320x320)."""
         w_orig, h_orig = image.size
         _, resized_w, resized_h, pad_left, pad_top, pad_right, pad_bottom = calculate_letterbox_geometry(
@@ -110,9 +110,9 @@ class Predictor:
     def postprocess(
         self,
         logits: torch.Tensor,
-        pad_coords: Tuple[int, int, int, int],
-        original_size: Tuple[int, int],
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        pad_coords: tuple[int, int, int, int],
+        original_size: tuple[int, int],
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Cắt bỏ letterbox padding, nội suy logits về H_orig x W_orig và tính Softmax/Argmax."""
         pad_left, pad_top, resized_w, resized_h = pad_coords
         w_orig, h_orig = original_size
@@ -155,7 +155,7 @@ class Predictor:
         total_pixels = int(flat_mask.size)
         counts = np.bincount(flat_mask, minlength=NUM_CLASSES)
 
-        classes_present: List[Dict[str, Any]] = []
+        classes_present: list[dict[str, Any]] = []
         for c_id in range(1, NUM_CLASSES):  # Bỏ background khỏi bảng thống kê đối tượng
             px = int(counts[c_id])
             if px > 0:

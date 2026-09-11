@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import torch
 from torch.utils.data import DataLoader
@@ -31,14 +31,14 @@ class Trainer:
 
     def __init__(
         self,
-        config: Dict[str, Any],
+        config: dict[str, Any],
         data_root: Path | str,
         output_dir: Path | str,
         dev_train_split: Path | str,
         dev_val_split: Path | str,
         checkpoint_dir: Path | str = Path("checkpoints"),
         manifest_sha256: str = "",
-        resume_checkpoint_path: Optional[Path | str] = None,
+        resume_checkpoint_path: Path | str | None = None,
     ) -> None:
         self.config = config
         self.data_root = Path(data_root)
@@ -151,9 +151,9 @@ class Trainer:
     def _resume_from_checkpoint(self, path: Path | str) -> None:
         ckpt = load_checkpoint(path, self.device)
         self.model.load_state_dict(ckpt["model_state_dict"])
-        if "optimizer_state_dict" in ckpt and ckpt["optimizer_state_dict"]:
+        if ckpt.get("optimizer_state_dict"):
             self.optimizer.load_state_dict(ckpt["optimizer_state_dict"])
-        if "scheduler_state_dict" in ckpt and ckpt["scheduler_state_dict"]:
+        if ckpt.get("scheduler_state_dict"):
             self.scheduler.load_state_dict(ckpt["scheduler_state_dict"])
         if self.amp and ckpt.get("scaler_state_dict"):
             self.scaler.load_state_dict(ckpt["scaler_state_dict"])
@@ -197,7 +197,7 @@ class Trainer:
 
         return total_loss / max(len(self.train_loader), 1)
 
-    def fit(self) -> Dict[str, Any]:
+    def fit(self) -> dict[str, Any]:
         logger.info(
             "Bắt đầu huấn luyện DeepLabV3+ ResNet50 (%d epochs, batch_size=%d, lr=%.2e) trên %s",
             self.epochs,

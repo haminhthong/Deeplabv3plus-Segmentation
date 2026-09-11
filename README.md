@@ -116,7 +116,7 @@ Trong development evaluation, `LetterboxTransform` giữ tỷ lệ ảnh, đệm
 ├── pyproject.toml
 ├── requirements.txt
 ├── requirements-dev.txt
-└── ReadMe.md
+└── README.md
 ```
 
 Dataset, checkpoint, output và cache không nằm trong repo. Cấu trúc dataset cần có:

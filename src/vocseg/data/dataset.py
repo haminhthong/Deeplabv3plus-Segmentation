@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional, Tuple
 
 import numpy as np
 import torch
@@ -22,11 +22,12 @@ class VOCSegmentationDataset(Dataset):
         self,
         root: Path | str,
         split: str = "dev_val",
-        split_file: Optional[Path | str] = None,
-        manifest_path: Optional[Path | str] = None,
-        split_dir: Optional[Path | str] = None,
+        split_file: Path | str | None = None,
+        ids: list[str] | None = None,
+        manifest_path: Path | str | None = None,
+        split_dir: Path | str | None = None,
         split_type: str = "benchmark",
-        joint_transform: Optional[Callable[[Image.Image, Image.Image], Tuple[torch.Tensor, torch.Tensor]]] = None,
+        joint_transform: Callable[[Image.Image, Image.Image], tuple[torch.Tensor, torch.Tensor]] | None = None,
     ) -> None:
         self.root = Path(root)
         self.split = split
@@ -41,7 +42,9 @@ class VOCSegmentationDataset(Dataset):
             )
 
         # Xác định danh sách ID theo quy tắc tường minh
-        if split_file is not None:
+        if ids is not None:
+            self.ids = list(ids)
+        elif split_file is not None:
             self.ids = read_split_file(Path(split_file))
         elif split_dir is not None:
             split_path = Path(split_dir) / f"{split}.txt"
@@ -73,14 +76,15 @@ class VOCSegmentationDataset(Dataset):
                     break
             if found is None:
                 raise FileNotFoundError(
-                    f"Không tìm thấy split file cho split='{split}'. Vui lòng chỉ định 'split_file' hoặc 'manifest_path'."
+                    f"Không tìm thấy split file cho split='{split}'. "
+                    "Vui lòng chỉ định 'split_file' hoặc 'manifest_path'."
                 )
             self.ids = read_split_file(found)
 
     def __len__(self) -> int:
         return len(self.ids)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         img_id = self.ids[idx]
         img_path = self.jpeg_dir / f"{img_id}.jpg"
         mask_path = self.mask_dir / f"{img_id}.png"

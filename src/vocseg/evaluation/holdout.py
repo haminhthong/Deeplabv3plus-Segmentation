@@ -6,7 +6,7 @@ import logging
 import platform
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 import torch
@@ -28,7 +28,7 @@ def evaluate_holdout_dataset(
     predictor: Predictor,
     data_root: Path | str,
     holdout_split_file: Path | str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Đánh giá tập Holdout bị khóa (LOCKED) tại độ phân giải gốc của ảnh.
 
     NGUYÊN TẮC: Sử dụng đúng 100% logic của Predictor Canonical để đảm bảo tính nhất quán (Parity).
@@ -40,7 +40,7 @@ def evaluate_holdout_dataset(
     sample_ids = read_split_file(Path(holdout_split_file))
     metrics = SegmentationMetrics(NUM_CLASSES)
 
-    latencies_ms: List[float] = []
+    latencies_ms: list[float] = []
     t_start = time.perf_counter()
 
     for i, sid in enumerate(sample_ids):

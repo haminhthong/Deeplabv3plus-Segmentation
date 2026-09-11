@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 from PIL import Image
@@ -29,7 +29,7 @@ def calculate_file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def read_split_file(file_path: Path) -> List[str]:
+def read_split_file(file_path: Path) -> list[str]:
     """Đọc danh sách mã ảnh từ tệp tin split. Báo lỗi nếu tệp không tồn tại hoặc rỗng."""
     if not file_path.is_file():
         raise FileNotFoundError(f"Không tìm thấy tệp split: {file_path}")
@@ -54,11 +54,11 @@ def extract_class_presence_vector(mask_path: Path, num_classes: int = NUM_CLASSE
 
 
 def multilabel_stratified_split(
-    sample_ids: List[str],
+    sample_ids: list[str],
     labels_matrix: np.ndarray,
     val_ratio: float = 0.15,
     seed: int = 42,
-) -> Tuple[List[str], List[str]]:
+) -> tuple[list[str], list[str]]:
     """Phân tầng đa nhãn (Multilabel Stratification) theo phương pháp tham lam (Greedy / Iterative).
 
     Đảm bảo phân bố của 20 lớp tiền cảnh giữa train và val đạt tỷ lệ đồng đều nhất có thể.
@@ -73,14 +73,14 @@ def multilabel_stratified_split(
         raise ValueError("labels_matrix phải có dạng [số_mẫu, số_lớp] và khớp với sample_ids")
 
     rng = np.random.default_rng(seed)
-    n_val = max(1, int(round(n_samples * val_ratio)))
+    n_val = max(1, round(n_samples * val_ratio))
     n_train = n_samples - n_val
 
     # Tính mục tiêu số lượng mẫu dương cho mỗi fold
     target_proportions = np.array([n_train / n_samples, n_val / n_samples])
 
     # Khởi tạo danh sách kết quả
-    folds: List[List[int]] = [[], []]
+    folds: list[list[int]] = [[], []]
     fold_counts = np.zeros(2, dtype=np.int64)
     fold_label_counts = np.zeros((2, labels_matrix.shape[1]), dtype=np.float64)
 
@@ -137,7 +137,7 @@ def create_development_and_holdout_splits(
     output_dir: Path,
     val_ratio: float = 0.15,
     seed: int = 42,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Tạo split dev_train, dev_val và holdout từ official VOC2012 ImageSets.
 
     TUYỆT ĐỐI KHÔNG DÙNG FALLBACK 100 ID. Nếu thiếu VOC -> Báo lỗi ngay lập tức.

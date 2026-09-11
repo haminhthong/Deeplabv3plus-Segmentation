@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+
 import pytest
 from PIL import Image
 
@@ -43,3 +44,20 @@ def test_voc_dataset_load_sample(tmp_path: Path):
     assert img_t.shape == (3, 64, 64)
     assert mask_t.shape == (64, 64)
     assert mask_t[0, 0].item() == 2
+
+
+def test_voc_dataset_direct_ids(tmp_path: Path):
+    jpeg_dir = tmp_path / "JPEGImages"
+    mask_dir = tmp_path / "SegmentationClass"
+    jpeg_dir.mkdir(exist_ok=True)
+    mask_dir.mkdir(exist_ok=True)
+
+    img = Image.new("RGB", (64, 64), color="red")
+    img.save(jpeg_dir / "sample_direct.jpg")
+    mask = Image.new("L", (64, 64), color=3)
+    mask.save(mask_dir / "sample_direct.png")
+
+    ds = VOCSegmentationDataset(root=tmp_path, ids=["sample_direct"])
+    assert len(ds) == 1
+    _, mask_t = ds[0]
+    assert mask_t[0, 0].item() == 3

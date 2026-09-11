@@ -11,7 +11,6 @@ QUY ƯỚC TIỀN XỬ LÝ (TRANSFORM CONTRACT):
 from __future__ import annotations
 
 import random
-from typing import Tuple
 
 import numpy as np
 import torch
@@ -27,7 +26,7 @@ def calculate_letterbox_geometry(
     height: int,
     target_width: int,
     target_height: int,
-) -> Tuple[float, int, int, int, int, int, int]:
+) -> tuple[float, int, int, int, int, int, int]:
     """Tính toán hình học letterbox duy nhất (scale, new_w, new_h, pad_left, pad_top, pad_right, pad_bottom)."""
     if width <= 0 or height <= 0 or target_width <= 0 or target_height <= 0:
         raise ValueError("Chiều cao và chiều rộng phải lớn hơn 0")
@@ -50,7 +49,7 @@ def resize_and_pad(
     target_h: int,
     target_w: int,
     ignore_index: int = IGNORE_INDEX,
-) -> Tuple[Image.Image, Image.Image]:
+) -> tuple[Image.Image, Image.Image]:
     """Letterbox ảnh và mặt nạ về kích thước cố định mà không làm méo tỷ lệ."""
     if image.size != mask.size:
         raise ValueError(f"Ảnh và mặt nạ phải cùng kích thước: {image.size} != {mask.size}")
@@ -87,7 +86,7 @@ class LetterboxTransform:
         self.to_tensor = transforms.ToTensor()
         self.ignore_index = ignore_index
 
-    def __call__(self, image: Image.Image, mask: Image.Image) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __call__(self, image: Image.Image, mask: Image.Image) -> tuple[torch.Tensor, torch.Tensor]:
         image_padded, mask_padded = resize_and_pad(image, mask, self.h, self.w, ignore_index=self.ignore_index)
         image_t = self.normalize(self.to_tensor(image_padded))
         mask_t = torch.from_numpy(np.array(mask_padded, dtype=np.int64))
@@ -121,7 +120,7 @@ class TrainJointTransform:
         self.color_jitter = transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1)
         self.normalize = transforms.Normalize(mean, std)
 
-    def __call__(self, image: Image.Image, mask: Image.Image) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __call__(self, image: Image.Image, mask: Image.Image) -> tuple[torch.Tensor, torch.Tensor]:
         if image.size != mask.size:
             raise ValueError(f"Ảnh và mặt nạ phải cùng kích thước: {image.size} != {mask.size}")
 

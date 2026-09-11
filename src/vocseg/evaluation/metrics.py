@@ -6,7 +6,7 @@ import csv
 import json
 import math
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -38,18 +38,18 @@ def dilate_boundary(boundary: np.ndarray, radius: int = 2) -> np.ndarray:
 def compute_adaptive_tolerance_radius(height: int, width: int, ratio: float = 0.005) -> int:
     """Tính bán kính dung sai thích ứng theo độ phân giải ảnh (tỷ lệ trên đường chéo ảnh)."""
     diagonal = math.sqrt(height**2 + width**2)
-    return max(1, int(round(diagonal * ratio)))
+    return max(1, round(diagonal * ratio))
 
 
 def compute_boundary_f1_score(
     pred_mask: np.ndarray,
     gt_mask: np.ndarray,
     num_classes: int = NUM_CLASSES,
-    radius: Optional[int] = None,
+    radius: int | None = None,
     ignore_index: int = IGNORE_INDEX,
-) -> Dict[int, float]:
+) -> dict[int, float]:
     """Tính Boundary F1 (BF-score) cho từng lớp ngữ nghĩa trên một ảnh."""
-    scores: Dict[int, float] = {}
+    scores: dict[int, float] = {}
     valid_mask = gt_mask != ignore_index
 
     if radius is None:
@@ -100,7 +100,7 @@ def extract_confusion_analysis(
     matrix: np.ndarray,
     num_classes: int = NUM_CLASSES,
     top_k_pairs: int = 5,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Trích xuất Best 5, Worst 5 classes và Top confusion pairs từ ma trận nhầm lẫn."""
     mat = matrix.astype(np.float64)
     true_count = mat.sum(axis=1)
@@ -125,7 +125,7 @@ def extract_confusion_analysis(
         reverse=True,
     )
 
-    def _pack(c: int) -> Dict[str, Any]:
+    def _pack(c: int) -> dict[str, Any]:
         return {
             "class_id": int(c),
             "class_name": VOC_CLASSES[c] if c < len(VOC_CLASSES) else f"Class {c}",
@@ -174,7 +174,7 @@ class SegmentationMetrics:
             raise ValueError("num_classes phải lớn hơn 0")
         self.num_classes = num_classes
         self.matrix = np.zeros((num_classes, num_classes), dtype=np.int64)
-        self.boundary_scores: Dict[int, List[float]] = {c: [] for c in range(num_classes)}
+        self.boundary_scores: dict[int, list[float]] = {c: [] for c in range(num_classes)}
 
     def update(
         self,
@@ -218,7 +218,7 @@ class SegmentationMetrics:
                 for c, val in sample_b_scores.items():
                     self.boundary_scores[c].append(val)
 
-    def compute(self, ignore_index: int = IGNORE_INDEX) -> Dict[str, Any]:
+    def compute(self, ignore_index: int = IGNORE_INDEX) -> dict[str, Any]:
         matrix = self.matrix.astype(np.float64)
         true_count = matrix.sum(axis=1)
         pred_count = matrix.sum(axis=0)
@@ -279,10 +279,10 @@ class SegmentationMetrics:
         }
 
 
-def save_metrics(metrics: Dict[str, Any], json_path: Path | str, csv_path: Optional[Path | str] = None) -> None:
+def save_metrics(metrics: dict[str, Any], json_path: Path | str, csv_path: Path | str | None = None) -> None:
     """Lưu kết quả đánh giá ra định dạng JSON và CSV theo lớp."""
     json_path = Path(json_path)
-    output: Dict[str, Any] = {}
+    output: dict[str, Any] = {}
 
     per_class_iou = metrics.get("per_class_iou")
     per_class_dice = metrics.get("per_class_dice")

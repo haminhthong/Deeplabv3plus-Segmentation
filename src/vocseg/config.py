@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -110,6 +111,52 @@ class AppConfig:
                 if hasattr(config.paths, k):
                     setattr(config.paths, k, Path(v))
         return config
+
+    def to_dict(self) -> dict[str, Any]:
+        """Chuyển đổi AppConfig thành cấu trúc dict phân tầng cho Trainer và Checkpoint."""
+        return {
+            "model": {
+                "architecture": self.model.architecture,
+                "encoder": self.model.encoder,
+                "encoder_weights": self.model.encoder_weights,
+                "num_classes": self.model.num_classes,
+            },
+            "data": {
+                "dataset_name": self.data.dataset_name,
+                "image_size": self.data.image_size,
+                "ignore_index": self.data.ignore_index,
+                "mean": list(self.data.mean),
+                "std": list(self.data.std),
+            },
+            "training": {
+                "batch_size": self.training.batch_size,
+                "epochs": self.training.epochs,
+                "optimizer": self.training.optimizer,
+                "lr": self.training.lr,
+                "weight_decay": self.training.weight_decay,
+                "scheduler": self.training.scheduler,
+                "eta_min": self.training.eta_min,
+                "amp": self.training.amp,
+                "seed": self.training.seed,
+                "num_workers": self.training.num_workers,
+                "patience": self.training.patience,
+                "deterministic": self.training.deterministic,
+            },
+            "loss": {
+                "cross_entropy": self.loss.cross_entropy,
+                "dice": self.loss.dice,
+            },
+            "selection": {
+                "metric": self.selection.metric,
+            },
+            "paths": {
+                "data_root": str(self.paths.data_root),
+                "output_dir": str(self.paths.output_dir),
+                "checkpoint_dir": str(self.paths.checkpoint_dir),
+                "manifest_path": str(self.paths.manifest_path),
+                "splits_dir": str(self.paths.splits_dir),
+            },
+        }
 
 
 def configure_console() -> None:
